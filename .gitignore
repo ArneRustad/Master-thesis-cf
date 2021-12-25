@@ -38,4 +38,7 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-Model/*
+Model/
+
+*gif
+*mp4
