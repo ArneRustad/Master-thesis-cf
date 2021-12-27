@@ -45,3 +45,6 @@ Model/
 
 .ipynb_checkpoints/
 Images/
+Model/
+output/
+Timers/
