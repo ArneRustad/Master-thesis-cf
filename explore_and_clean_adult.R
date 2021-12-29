@@ -1,7 +1,7 @@
 library(dplyr)
 library(data.table)
 library(ggplot2)
-df.adult = read.csv("adult.data")#, strip.white = TRUE)
+df.adult = read.csv("Datasets//adult.data")#, strip.white = TRUE)
 
 df.adult = df.adult %>% mutate(across(where(is.factor), as.character))
 View(df.adult)
