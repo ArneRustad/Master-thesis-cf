@@ -52,3 +52,12 @@ cf$explain(x.interest_obs1, target = c(0.5,1))
 toc()
 df_cf_obs1 = cf$subset_results(10)$counterfactuals
 fwrite(df_cf_obs1, paste0(cf_dir, "moc_cf_toy_dataset_obs1.csv"))
+
+sapply(x.interest_obs1, class)
+
+x_interest_own_obs = data.frame("x1" = 4.5, "x2" = 0, "x3" = 1)
+tic()
+cf$explain(x_interest_own_obs, target = c(0.5,1))
+toc()
+df_cf_obs1 = cf$subset_results(10)$counterfactuals
+fwrite(df_cf_obs1, paste0(cf_dir, "moc_cf_toy_dataset_obs1.csv"))
