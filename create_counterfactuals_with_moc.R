@@ -2,6 +2,7 @@ remotes::install_git(url = "https://github.com/susanne-207/moc", ref = "moc_with
 library(counterfactuals)
 library(iml)
 library(ggplot2)
+library(data.table)
 
 df_toy = read.csv("Datasets//df_toy.csv")
 df_toy
@@ -26,8 +27,8 @@ head(df_plot_pred_func)
 ggplot(df_plot_pred_func, aes(x = x1, y = x2)) + geom_tile(aes(fill = func)) +
   geom_point(data=df_toy, aes(x = x1, y=x2, color =x3))
 
-x.interest = df_toy[1,]
-x.interest
+x.interest_obs0 = df_toy[1,]
+x.interest_obs0
 pred = Predictor$new(data = df_toy, predict.function = pred_func)
 pred$predict(newdata=x.interest)
 
@@ -35,7 +36,19 @@ pred$predict(newdata=x.interest)
 library(tictoc)
 tic()
 cf = Counterfactuals$new(predictor = pred, 
-                         x.interest = x.interest, 
-                         target = c(0.5, 1), epsilon = 0, generations=175, mu=20)
+                         x.interest = x.interest_obs0, 
+                         target = c(0.5, 1), epsilon = 0, generations=175, mu=40, initialization = "icecurve")
 toc()
-cf$subset_results()
+
+cf_dir = ".//Counterfactuals//"
+dir.create(cf_dir, showWarnings = FALSE)
+df_cf_obs0 = cf$subset_results(10)$counterfactuals
+fwrite(df_cf_obs0, paste0(cf_dir, "moc_cf_toy_dataset_obs0.csv"))
+cf$subset_results(10)
+
+x.interest_obs1 = df_toy[2,]
+tic()
+cf$explain(x.interest_obs1, target = c(0.5,1))
+toc()
+df_cf_obs1 = cf$subset_results(10)$counterfactuals
+fwrite(df_cf_obs1, paste0(cf_dir, "moc_cf_toy_dataset_obs1.csv"))
