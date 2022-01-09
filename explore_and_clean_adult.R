@@ -86,5 +86,5 @@ df.adult.rv.train = df.adult.rv.train[, colnames(df.adult.rv.train) != "train_te
 df.adult.rv.test = filter(df.adult.rv, train_test_split == "test")
 df.adult.rv.test = df.adult.rv.test[, colnames(df.adult.rv.test) != "train_test_split"]
 
-fwrite(df.adult.rv.train, "df_adult_edited_train.csv")
-fwrite(df.adult.rv.train, "df_adult_edited_test.csv")
+fwrite(df.adult.rv.train, "Datasets//df_adult_edited_train.csv")
+fwrite(df.adult.rv.train, "Datasets//df_adult_edited_test.csv")
