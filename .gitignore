@@ -54,3 +54,5 @@ Datasets/df_adult_edited_train_tabFairGAN.csv
 categorical-model.json
 
 Counterfactuals/
+Python_objects/
+model.png
