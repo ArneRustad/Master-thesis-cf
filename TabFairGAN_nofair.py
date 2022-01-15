@@ -22,19 +22,26 @@ parser.add_argument("df_name", help="Reference dataframe", type=str)
 
 parser.add_argument("num_epochs", help="Total number of epochs", type=int)
 parser.add_argument("batch_size", help="the batch size", type=int)
-
+parser.add_argument("--size_of_fake_data", help="the number of observations to generate", type=int, required=False, default=-1)
 parser.add_argument("fake_name", help="name of the produced csv file", type=str)
-parser.add_argument("size_of_fake_data", help="how many data records to generate", type=int)
 parser.add_argument("--critic_repeat", help="Number of critic updates for each generator update (added by Arne for easier comparison with other models in his project thesis", type=int, required=False, default=4)
+parser.add_argument("--dim_latent_layer", help="Number of nodes in the latent noise layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
 parser.add_argument("--dim_hidden_layer", help="Number of nodes in the hidden layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
+parser.add_argument("--extra_hidden_layer_generator", help="Adds an extra hidden layer to the generator (added by Arne for easier comparison with the other models in his project thesis", type=bool, required=False, default=False)
 args = parser.parse_args()
 
 
 df = pd.read_csv(args.df_name)
 
+if args.size_of_fake_data == -1:
+    args.size_of_fake_data = df.shape[0]
 
 
 
+if args.dim_latent_layer == -1:
+    noise_dim = input_dim
+else:
+    noise_dim = args.dim_latent_layer
 
 
 
@@ -88,9 +95,8 @@ def prepare_data(df, batch_size):
 
     ohe, scaler, discrete_columns, continuous_columns, df_transformed = get_ohe_data(df)
 
-
     input_dim = df_transformed.shape[1]
-
+    
     #from sklearn.model_selection import train_test_split
     #################
     X_train, X_test = train_test_split(df_transformed,test_size=0.1, shuffle=True) #random_state=10)
@@ -121,7 +127,15 @@ class Generator(nn.Module):
             dim_hidden_layer = self._input_dim
         else:
             dim_hidden_layer = args.dim_hidden_layer
-        self.lin1 = nn.Linear(self._input_dim, dim_hidden_layer)
+            
+        if args.dim_latent_layer == -1:
+            dim_noise = input_dim
+        else:
+            dim_noise = args.dim_latent_layer
+         
+        self.lin1 = nn.Linear(dim_noise, dim_hidden_layer)
+        if args.extra_hidden_layer_generator:
+            self.lin2 = nn.Linear(dim_hidden_layer, dim_hidden_layer)
         self.lin_numerical = nn.Linear(dim_hidden_layer, self._num_continuous_columns)
 
         self.lin_cat = nn.ModuleDict()
@@ -130,6 +144,8 @@ class Generator(nn.Module):
 
     def forward(self, x):
         x = torch.relu(self.lin1(x))
+        if args.extra_hidden_layer_generator:
+            x = torch.relu(self.lin2(x))
         # x = f.leaky_relu(self.lin1(x))
         # x_numerical = f.leaky_relu(self.lin_numerical(x))
         x_numerical = f.relu(self.lin_numerical(x))
@@ -279,10 +295,11 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             loss_of_epoch_D = 0
             crit_repeat = args.critic_repeat
             mean_iteration_critic_loss = 0
+
             for k in range(crit_repeat):
                 # training the critic
                 crit_optimizer.zero_grad()
-                fake_noise = torch.randn(size=(batch_size, input_dim), device=device).float()
+                fake_noise = torch.randn(size=(batch_size, noise_dim), device=device).float()
                 fake = generator(fake_noise)
 
                 crit_fake_pred = critic(fake.detach())
@@ -305,7 +322,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             if i + 1 <= (epochs - fair_epochs):
                 # training the generator for accuracy
                 gen_optimizer.zero_grad()
-                fake_noise_2 = torch.randn(size=(batch_size, input_dim), device=device).float()
+                fake_noise_2 = torch.randn(size=(batch_size, noise_dim), device=device).float()
                 fake_2 = generator(fake_noise_2)
                 crit_fake_pred = critic(fake_2)
 
@@ -319,7 +336,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             if i + 1 > (epochs - fair_epochs):
                 # training the generator for fairness
                 gen_optimizer_fair.zero_grad()
-                fake_noise_2 = torch.randn(size=(batch_size, input_dim), device=device).float()
+                fake_noise_2 = torch.randn(size=(batch_size, noise_dim), device=device).float()
                 fake_2 = generator(fake_noise_2)
 
                 crit_fake_pred = critic(fake_2)
@@ -374,7 +391,7 @@ def train_plot(df, epochs, batchsize, fair_epochs, lamda):
 
 
 generator, critic, ohe, scaler, data_train, data_test, input_dim = train_plot(df, args.num_epochs, args.batch_size, 0, 0)
-fake_numpy_array = generator(torch.randn(size=(args.size_of_fake_data, input_dim), device=device)).cpu().detach().numpy()
+fake_numpy_array = generator(torch.randn(size=(args.size_of_fake_data, noise_dim), device=device)).cpu().detach().numpy()
 fake_df = get_original_data(fake_numpy_array, df, ohe, scaler)
 fake_df = fake_df[df.columns]
 fake_df.to_csv(args.fake_name, index=False)

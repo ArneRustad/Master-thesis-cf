@@ -32,6 +32,8 @@ x.interest_obs0
 pred = Predictor$new(data = df_toy, predict.function = pred_func)
 pred$predict(newdata=x.interest)
 
+?Counterfactuals
+
 
 library(tictoc)
 tic()
