@@ -1,8 +1,9 @@
-remotes::install_git(url = "https://github.com/susanne-207/moc", ref = "moc_without_iml", subdir = "counterfactuals")
+#remotes::install_git(url = "https://github.com/susanne-207/moc", ref = "moc_without_iml", subdir = "counterfactuals")
 library(counterfactuals)
 library(iml)
 library(ggplot2)
 library(data.table)
+library(tictoc)
 
 df_toy = read.csv("Datasets//df_toy.csv")
 df_toy
@@ -27,39 +28,56 @@ head(df_plot_pred_func)
 ggplot(df_plot_pred_func, aes(x = x1, y = x2)) + geom_tile(aes(fill = func)) +
   geom_point(data=df_toy, aes(x = x1, y=x2, color =x3))
 
-x.interest_obs0 = df_toy[1,]
-x.interest_obs0
-pred = Predictor$new(data = df_toy, predict.function = pred_func)
-pred$predict(newdata=x.interest)
+x.interest_obs245 = df_toy[245,]
+x.interest_obs245
+
 
 ?Counterfactuals
 
+pred_func(NULL, x.interest_obs245)
 
-library(tictoc)
+cf$results
+
 tic()
 cf = Counterfactuals$new(predictor = pred, 
-                         x.interest = x.interest_obs0, 
-                         target = c(0.5, 1), epsilon = 0, generations=175, mu=40, initialization = "icecurve")
+                         x.interest = x.interest_obs245, 
+                         target = ifelse(pred_func(NULL, x.interest_obs245) < 0.5, c(0.5, 1), c(0, 0.5)),
+                         epsilon = 0, generations=2, mu=40, initialization = "icecurve")
 toc()
 
-cf_dir = ".//Counterfactuals//"
-dir.create(cf_dir, showWarnings = FALSE)
-df_cf_obs0 = cf$subset_results(10)$counterfactuals
-fwrite(df_cf_obs0, paste0(cf_dir, "moc_cf_toy_dataset_obs0.csv"))
-cf$subset_results(10)
+create_counterfactual = function(x_obs_nr, data, pred_func, generations = 200, mu = 50, initialization = "icecurve",
+                                 epsilon = 0, cf_dir = ".//Counterfactuals//",
+                                 dataset_name = NULL) {
+  x.interest = data[x_obs_nr + 1,]
+  pred = Predictor$new(data = df_toy, predict.function = pred_func)
+  tic()
+  cf = Counterfactuals$new(predictor = pred, 
+                           x.interest = x.interest, 
+                           target = ifelse(pred_func(NULL, x.interest) < 0.5, c(0.5, 1), c(0, 0.5)),
+                           epsilon = epsilon, generations=generations, mu=mu, initialization = initialization)
+  toc()
+  dir.create(cf_dir, showWarnings = FALSE)
+  df_cf = cf$subset_results(10)$counterfactuals
+  fwrite(df_cf, paste0(cf_dir, sprintf("%s_obs%d.csv", dataset_name, x_obs_nr)))
+  return (cf)
+}
 
-x.interest_obs1 = df_toy[2,]
-tic()
-cf$explain(x.interest_obs1, target = c(0.5,1))
-toc()
-df_cf_obs1 = cf$subset_results(10)$counterfactuals
-fwrite(df_cf_obs1, paste0(cf_dir, "moc_cf_toy_dataset_obs1.csv"))
+cf1 = create_counterfactual(89, data=df_toy, pred_func=pred_func, dataset_name = "Syn2D_cf")
+cf1$subset_results(10)
 
-sapply(x.interest_obs1, class)
+cf2 = create_counterfactual(243, data=df_toy, pred_func=pred_func, dataset_name = "Syn2D_cf")
+cf2$subset_results(10)
 
-x_interest_own_obs = data.frame("x1" = 4.5, "x2" = 0, "x3" = 1)
-tic()
-cf$explain(x_interest_own_obs, target = c(0.5,1))
-toc()
-df_cf_obs1 = cf$subset_results(10)$counterfactuals
-fwrite(df_cf_obs1, paste0(cf_dir, "moc_cf_toy_dataset_obs1.csv"))
+cf3 = create_counterfactual(11, data=df_toy, pred_func=pred_func, dataset_name = "Syn2D_cf")
+cf2$subset_results(10)
+
+
+
+
+########### Adult dataset
+df_adult_train = read.csv("Datasets//df_adult_edited_train.csv")
+cf_adult = create_counterfactual(0, data=df_adult_train, pred_func=pred_func, dataset_name = "Adult_cf")
+
+install.packages("drat", repos="https://cran.rstudio.com")
+drat:::addRepo("dmlc")
+install.packages("xgboost", repos="http://dmlc.ml/drat/", type = "source")
