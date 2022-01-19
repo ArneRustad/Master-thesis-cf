@@ -1,7 +1,7 @@
 # Model-Based Counterfacual Synthesizer Using Tabular GAN and a Comparison to Algorithmic Based Counterfactuals
 
 
-This is a Github repository for the code associated with Arne Rustad's project thesis.  More information abot scripts and structure will be available soon. Below we describe briefly what each code file's purpose is and give the abstract for the written project thesis titled *"Model-Based Counterfacual Synthesizer Using Tabular GAN and a Comparison to Algorithmic Based Counterfactuals"*
+This is a Github repository for the code associated with Arne Rustad's project thesis. Below we describe briefly what each code file's purpose is and give the abstract for the written project thesis titled *"Model-Based Counterfacual Synthesizer Using Tabular GAN and a Comparison to Algorithmic Based Counterfactuals"*
 
 
 ## Code file explanations
