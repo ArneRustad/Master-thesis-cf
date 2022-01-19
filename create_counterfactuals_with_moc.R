@@ -1,13 +1,15 @@
-#remotes::install_git(url = "https://github.com/susanne-207/moc", ref = "moc_without_iml", subdir = "counterfactuals")
+# Importing packages
 library(counterfactuals)
 library(iml)
 library(ggplot2)
 library(data.table)
 library(tictoc)
+library(dplyr)
+
 
 df_toy = read.csv("Datasets//df_toy.csv")
-df_toy
 
+# Create prediction function for test dataset
 sigmoid = function(x) {
   1 / (1 + exp(-x))
 }
@@ -22,46 +24,48 @@ pred_func = function(model, newdata) {
   return(sigmoid(value))
 }
 
-df_plot_pred_func = data.frame(expand.grid(x1 = seq(0,10,length.out=100), x2 = seq(-1,1,length.out=100)))
+# Visualize prediction function
+df_plot_pred_func = data.frame(expand.grid(x1 = seq(0,10,length.out=100),
+                                           x2 = seq(-1,1,length.out=100)))
 df_plot_pred_func$func = pred_func(NULL, newdata=df_plot_pred_func)
 head(df_plot_pred_func)
 ggplot(df_plot_pred_func, aes(x = x1, y = x2)) + geom_tile(aes(fill = func)) +
   geom_point(data=df_toy, aes(x = x1, y=x2, color =x3))
 
-x.interest_obs245 = df_toy[245,]
-x.interest_obs245
+# Change discrete columns to be of type object
+df_toy = df_toy %>% mutate(across(where(is.character), as.factor))
 
-
-?Counterfactuals
-
-pred_func(NULL, x.interest_obs245)
-
-cf$results
-
-tic()
-cf = Counterfactuals$new(predictor = pred, 
-                         x.interest = x.interest_obs245, 
-                         target = ifelse(pred_func(NULL, x.interest_obs245) < 0.5, c(0.5, 1), c(0, 0.5)),
-                         epsilon = 0, generations=2, mu=40, initialization = "icecurve")
-toc()
-
-create_counterfactual = function(x_obs_nr, data, pred_func, generations = 200, mu = 50, initialization = "icecurve",
+# Create function for automating the counterfactual generating and saving step
+create_counterfactual = function(x_obs_nr, data, pred_func, generations = 200,
+                                 mu = 50, initialization = "icecurve",
                                  epsilon = 0, cf_dir = ".//Counterfactuals//",
-                                 dataset_name = NULL) {
+                                 dataset_name = NULL, track.infeas = TRUE) {
   x.interest = data[x_obs_nr + 1,]
-  pred = Predictor$new(data = df_toy, predict.function = pred_func)
+  pred = Predictor$new(data = data, predict.function = pred_func)
+  
+  if (pred_func(NULL, x.interest) < 0.5) {
+    target = c(0.5, 1)
+  } else {
+    target = c(0, 0.5)
+  }
   tic()
   cf = Counterfactuals$new(predictor = pred, 
                            x.interest = x.interest, 
-                           target = ifelse(pred_func(NULL, x.interest) < 0.5, c(0.5, 1), c(0, 0.5)),
-                           epsilon = epsilon, generations=generations, mu=mu, initialization = initialization)
+                           target = target,
+                           epsilon = epsilon, generations=generations, mu=mu,
+                           initialization = initialization,
+                           track.infeas = TRUE)
   toc()
-  dir.create(cf_dir, showWarnings = FALSE)
-  df_cf = cf$subset_results(10)$counterfactuals
-  fwrite(df_cf, paste0(cf_dir, sprintf("%s_obs%d.csv", dataset_name, x_obs_nr)))
+  if (! is.null(dataset_name)) {
+    dir.create(cf_dir, showWarnings = FALSE)
+    df_cf = cf$subset_results(10)$counterfactuals
+    fwrite(df_cf, paste0(cf_dir, sprintf("%s_obs%d.csv", dataset_name, x_obs_nr)))
+  }
   return (cf)
 }
 
+# Run the methods three times. One time for each observation from the toy dataset to be
+# explained
 cf1 = create_counterfactual(89, data=df_toy, pred_func=pred_func, dataset_name = "Syn2D_cf")
 cf1$subset_results(10)
 
@@ -72,12 +76,54 @@ cf3 = create_counterfactual(11, data=df_toy, pred_func=pred_func, dataset_name =
 cf2$subset_results(10)
 
 
-
-
-########### Adult dataset
+########### Adult dataset ###### Create counterfactuals for the single observation from
+# the adult dataset
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(xgboost)
+library(xtable)
+# Fetch adult data and perform some preprocessing to be able to use xgboost
 df_adult_train = read.csv("Datasets//df_adult_edited_train.csv")
-cf_adult = create_counterfactual(0, data=df_adult_train, pred_func=pred_func, dataset_name = "Adult_cf")
+df_adult_train = df_adult_train %>% mutate(across(where(is.character), as.factor))
+df_adult_train_wo_income = df_adult_train[colnames(df_adult_train) != "income"]
 
-install.packages("drat", repos="https://cran.rstudio.com")
-drat:::addRepo("dmlc")
-install.packages("xgboost", repos="http://dmlc.ml/drat/", type = "source")
+oh_encoder <- dummyVars("~ .", data = df_adult_train_wo_income)
+matrix_adult_train <- predict(oh_encoder, newdata = df_adult_train)
+label_train = ifelse(df_adult_train$income == "<=50K", 0, 1)
+
+df_adult_test = read.csv("Datasets//df_adult_edited_test.csv")
+matrix_adult_test = predict(oh_encoder, newdata = df_adult_test)
+label_test = ifelse(df_adult_test$income == "<=50K", 0, 1)
+
+# Create train and test matrices for input into the xgboost ecosystem
+xgb.train = xgb.DMatrix(data=matrix_adult_train,label=label_train)
+xgb.test = xgb.DMatrix(data=matrix_adult_test,label=label_test)
+# Fit xgboost model
+xgb.fit=xgb.train(
+  data=xgb.train,
+  nrounds=1000
+)
+# Test that xgboost model in R performs likewise as the xgboost model in Python
+xgb.pred = predict(xgb.fit,xgb.test,reshape=T)
+xgb.pred = round(xgb.pred)
+mean(xgb.pred == label_test)
+
+# Create xgboost prediction function that will be used in the MOC framework
+pred_func_xgboost = function(model, newdata) {
+  matrix_data = predict(oh_encoder, newdata = newdata)
+  xgb.matrix = xgb.DMatrix(data=matrix_data)
+  xgb.pred = predict(xgb.fit,xgb.matrix,reshape=T)
+  return (xgb.pred)
+}
+
+# Run MOC for the first observation in the Adult train dataset
+cf_adult = create_counterfactual(0, data=df_adult_train_wo_income[1:2000,],
+                                 pred_func=pred_func_xgboost,
+                                 generations = 100, initialization = "icecurve", mu = 20,
+                                 track.infeas = TRUE)
+# print counterfactuals
+cf_adult$results
+# print counterfactuals for easy insertion into latex document
+xtable(t(cf_adult$subset_results(3)$counterfactuals))
