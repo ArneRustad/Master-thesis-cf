@@ -38,17 +38,17 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-Model/
+Models/
 
 *gif
 *mp4
 
 .ipynb_checkpoints/
-Images/
-Model/
+# Images/
+Models/
 output/
-Timers/
-Datasets/Generated_for_pred_eval_adult
+# Timers/
+# Datasets/Generated_for_pred_eval_adult
 Datasets/df_adult_edited_tabFairGAN.csv
 Datasets/df_adult_edited_train_tabFairGAN.csv
 Datasets/df_adult_edited_train.csv
@@ -56,5 +56,4 @@ Datasets/df_adult_edited_test.csv
 categorical-model.json
 
 Counterfactuals/
-Python_objects/
-model.png
+# Python_objects/
