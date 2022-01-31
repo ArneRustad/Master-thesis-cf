@@ -1,0 +1,1 @@
+project_dir = lambda: "C:\\Users\\Arne\\repositories\\Master-thesis-cf"
