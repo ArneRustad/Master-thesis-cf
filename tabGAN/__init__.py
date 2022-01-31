@@ -1,0 +1,1 @@
+from .tabGAN import TableGAN

@@ -1,18 +1,25 @@
 import os
+from tqdm.auto import tqdm
+from ..tabgan_gen_multiple_datasets import generate_multiple_datasets
+import pickle
 
 def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, hyperparams_vec, n_epochs, dataset_dir,
+                                                            batch_size,
                                                             n_synthetic_datasets, restart=False,
                                                             redo_hyperparams_vec=[], plot_only_new_progress=True,
                                                             hyperparams_name="hyperparam",
                                                             subfolder=None,
                                                             tracker_name=None,
-                                                            tracker_dir=None):
+                                                            tracker_dir=None,
+                                                            add_comparison_folder=True):
     if subfolder is not None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if tracker_dir is None:
-        tracker_dir = dataset_dir
+        tracker_dir = os.path.join(dataset_dir, "_tracker_objects")
     if tracker_name is None:
         tracker_name = f"existing_{hyperparams_name}_tracker.pkl"
+    if add_comparison_folder:
+        dataset_dir = os.path.join(dataset_dir, f"{hyperparams_name}_comparison")
     hyperparams_vec = set(hyperparams_vec)
     redo_hyperparams_vec = set(redo_hyperparams_vec)
     path_finished_hyperparams = os.path.join(tracker_dir, tracker_name)
@@ -36,6 +43,7 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
                 hyperparams_abbreviation = "_" + str(hyperparams)
             tabGAN = create_tabGAN_func(hyperparams)
             generate_multiple_datasets(tabGAN, dataset_dir, n_synthetic_datasets, n_epochs=n_epochs,
+                                       batch_size=batch_size,
                                        subfolder="{}{}".format(hyperparams_name, hyperparams_abbreviation),
                                        progress_bar_leave=False)
             pbar.update(1)

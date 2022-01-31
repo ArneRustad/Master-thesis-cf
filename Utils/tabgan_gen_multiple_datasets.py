@@ -1,5 +1,9 @@
-def generate_multiple_datasets(tabgan, dataset_dir, n_synthetic_datasets, n_epochs, subfolder = None,
-                               n_synthetic_datasets_existing = 0, progress_bar_leave = True):
+import os
+from tqdm.auto import tqdm
+
+def generate_multiple_datasets(tabgan, dataset_dir, n_synthetic_datasets, n_epochs, batch_size,
+                               subfolder = None,n_synthetic_datasets_existing = 0,
+                               progress_bar_leave = True):
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     os.makedirs(dataset_dir, exist_ok = True)
