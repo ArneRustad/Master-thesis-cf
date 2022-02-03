@@ -7,7 +7,7 @@ def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_s
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if path_finished_epochs_counter is None:
 
-n_epochs_vec = set(n_epochs_vec)
+    n_epochs_vec = set(n_epochs_vec)
     redo_n_epochs_vec = set(redo_n_epochs_vec)
     if restart or (path_finished_epochs_counter is None) or (not os.path.exists(path_finished_epochs_counter)):
         existing_n_epochs = set()
