@@ -1,7 +1,22 @@
+import pickle
+from tqdm.auto import tqdm
+
 def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_synthetic_datasets, n_epochs_vec,
                                                         restart = False, path_finished_epochs_counter = None,
                                                         redo_n_epochs_vec = [], plot_only_new_progress = True,
-                                                        n_synthetic_datsets_existing = 0, **kwargs):
+                                                        n_synthetic_datasets_existing = 0,
+                                                        subfolder=None, tracker_name=None,
+                                                        **kwargs):
+    if not subfolder is None:
+        dataset_dir = os.path.join(dataset_dir, subfolder)
+    if path_finished_epochs_counter is None:
+        path_finished_epochs_counter = os.path.join(dataset_dir, "_tracker_objects/")
+        if tracker_name is None:
+            path_finished_epochs_counter = os.path.join(path_finished_epochs_counter,
+                                                        "existing_epochs_tracker.pkl")
+        else:
+            path_finished_epochs_counter = os.path.join(path_finished_epochs_counter,
+                                                        tracker_name)
     n_epochs_vec = set(n_epochs_vec)
     redo_n_epochs_vec = set(redo_n_epochs_vec)
     if restart or (path_finished_epochs_counter is None) or (not os.path.exists(path_finished_epochs_counter)):
