@@ -11,7 +11,16 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
                                                             subfolder=None,
                                                             tracker_name=None,
                                                             tracker_dir=None,
-                                                            add_comparison_folder=True):
+                                                            add_comparison_folder=True,
+                                                            overwrite_dataset=True,
+                                                            progress_bar=True,
+                                                            progress_bar_subprocess=True,
+                                                            progress_bar_subsubprocess=None,
+                                                            force_tqdm_cmd=False):
+    if force_tqdm_cmd:
+        from tqdm import tqdm
+    if progress_bar_subsubprocess is None:
+        progress_bar_subsubprocess=progress_bar_subprocess
     if subfolder is not None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if tracker_dir is None:
@@ -33,7 +42,7 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
     hyperparams_new_vec = hyperparams_vec.difference(existing_hyperparams.difference(redo_hyperparams_vec))
 
     with tqdm(total=len(hyperparams_new_vec) if plot_only_new_progress else len(hyperparams_vec),
-              desc="Hyperparameters subfolder creation") as pbar:
+              desc="Hyperparameters subfolder creation", disable=not progress_bar) as pbar:
         if not plot_only_new_progress:
             pbar.update(len(hyperparams_vec) - len(hyperparams_new_vec))
         for i, hyperparams in enumerate(hyperparams_new_vec):
@@ -45,7 +54,10 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
             generate_multiple_datasets(tabGAN, dataset_dir, n_synthetic_datasets, n_epochs=n_epochs,
                                        batch_size=batch_size,
                                        subfolder="{}{}".format(hyperparams_name, hyperparams_abbreviation),
-                                       progress_bar_leave=False)
+                                       progress_bar_leave=False,
+                                       overwrite_dataset=overwrite_dataset,
+                                       progress_bar=progress_bar_subprocess,
+                                       progress_bar_dataset=progress_bar_subsubprocess)
             pbar.update(1)
             if not path_finished_hyperparams is None:
                 existing_hyperparams.add(hyperparams)
