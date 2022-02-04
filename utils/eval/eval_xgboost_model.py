@@ -2,15 +2,22 @@ import numpy as np
 from xgboost import XGBClassifier
 from sklearn.metrics import normalized_mutual_info_score, adjusted_mutual_info_score, accuracy_score, roc_auc_score
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import tensorflow as tf
 
+def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats = False, response_col = "income",
+                             tree_method=None):
+    if tree_method is None:
+        if len(tf.config.list_physical_devices("gpu")) > 0:
+            tree_method = "gpu_hist"
+        else:
+            tree_method = "hist"
 
-def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats = False, response_col = "income"):
     X_train = data_train.iloc[:,data_train.columns != response_col]
     Y_train = data_train[response_col]
     X_test = data_test.iloc[:,data_train.columns != response_col]
     Y_test = data_test[response_col]
 
-    columns_discrete_bool = [b in ["object", "category"] for b in X_train.dtypes]
+    columns_discrete_bool = [str(b) in ["object", "category"] for b in X_train.dtypes]
     discrete_columns_of_X = X_train.columns[columns_discrete_bool]
     numeric_columns_of_X = X_train.columns[np.logical_not(columns_discrete_bool)]
 
@@ -33,7 +40,7 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
                             axis = 1)
 
     clf = XGBClassifier(
-        tree_method="gpu_hist", enable_categorical=False, use_label_encoder=False, eval_metric = "logloss"
+        tree_method=tree_method, enable_categorical=False, use_label_encoder=False, eval_metric = "logloss"
     )
     # X is the dataframe we created in previous snippet
     clf.fit(X_train, Y_train)

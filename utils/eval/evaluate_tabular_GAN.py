@@ -1,4 +1,8 @@
-def evaluate_tabGAN_through_prediction(data_train, data_test, dataset_dir, subfolders, n_synthetic_datasets,
+from tqdm.auto import tqdm
+import pandas as pd
+from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
+
+def eval_tabular_GAN_ml_efficacy(data_train, data_test, dataset_dir, subfolders, n_synthetic_datasets,
                                        name_true_train_dataset = "Train dataset",
                                        eval_sd_true_dataset = False, print_all_accuracy = False):
     progress_bar_total = len(subfolders)*n_synthetic_datasets + (n_synthetic_datasets if eval_sd_true_dataset else 1)

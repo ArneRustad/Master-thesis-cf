@@ -1,7 +1,19 @@
+from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
+import os
+from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
+import pandas as pd
+import numpy as np
+
 def evaluate_n_epochs_through_prediction(data_train, data_test, dataset_dir, n_epochs_vec, n_synthetic_datasets,
-                                         save_dir = None, save_path = None, figsize = [14,8], legend_pos="best"):
+                                         save_dir = None, save_path = None, figsize = [14,8], legend_pos="best",
+                                         subfolder=None, incl_comparison_folder=True):
+    if not subfolder is None:
+        dataset_dir = os.path.join(dataset_dir, subfolder)
+    if incl_comparison_folder:
+        dataset_dir = os.path.join(dataset_dir, "n_epochs_comparison/")
     subfolders = [f"Epochs{n_epochs}" for n_epochs in n_epochs_vec]
-    with tqdm(total=len(subfolders)*n_synthetic_datasets) as pbar:
+    with tqdm(total=len(subfolders)*n_synthetic_datasets, leave=False) as pbar:
         models = subfolders
         result = pd.DataFrame({"n_epochs" : models, "Accuracy" : 0, "AUC" : 0,
                                "SD Accuracy" : 0, "SD AUC" : 0})
@@ -39,5 +51,6 @@ def evaluate_n_epochs_through_prediction(data_train, data_test, dataset_dir, n_e
     if not save_path is None:
         if not save_dir is None:
             save_path = os.path.join(save_dir, save_path)
+            os.makedirs(save_dir, exist_ok=True)
         fig.savefig(save_path)
     return result

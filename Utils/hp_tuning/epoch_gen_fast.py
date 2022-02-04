@@ -1,7 +1,9 @@
 import pickle
 from tqdm.auto import tqdm
+import os
 
-def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_synthetic_datasets, n_epochs_vec,
+def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_epochs_vec,
+                                                        batch_size, n_synthetic_datasets,
                                                         restart = False, path_finished_epochs_counter = None,
                                                         redo_n_epochs_vec = [], plot_only_new_progress = True,
                                                         n_synthetic_datasets_existing = 0,
@@ -13,13 +15,13 @@ def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_s
         path_finished_epochs_counter = os.path.join(dataset_dir, "_tracker_objects/")
         if tracker_name is None:
             path_finished_epochs_counter = os.path.join(path_finished_epochs_counter,
-                                                        "existing_epochs_tracker.pkl")
+                                                        "existing_n_epochs_tracker.pkl")
         else:
             path_finished_epochs_counter = os.path.join(path_finished_epochs_counter,
                                                         tracker_name)
     n_epochs_vec = set(n_epochs_vec)
     redo_n_epochs_vec = set(redo_n_epochs_vec)
-    if restart or (path_finished_epochs_counter is None) or (not os.path.exists(path_finished_epochs_counter)):
+    if restart or (not os.path.exists(path_finished_epochs_counter)):
         existing_n_epochs = set()
         if not path_finished_epochs_counter is None:
             os.makedirs(os.path.dirname(path_finished_epochs_counter), exist_ok = True)

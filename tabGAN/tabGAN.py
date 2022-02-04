@@ -20,6 +20,8 @@ from tqdm.auto import tqdm
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
+from .fast_nondominated_sort import fast_non_dominated_sort
+
 
 class TableGAN:
     """

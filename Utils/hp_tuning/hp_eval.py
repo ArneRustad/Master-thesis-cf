@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from ..eval_xgboost_model import fit_and_evaluate_xgboost
+from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 import pandas as pd
 import numpy as np
 
@@ -9,7 +9,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             save_dir=None, save_path=None, figsize=[14, 8], legend_pos="best",
                                             plot_sd=True, plot_separate=False, subfolder=None,
                                             hyperparams_name="hyperparam", x_scale="linear",
-                                            incl_comparison_folder=True):
+                                            incl_comparison_folder=True,
+                                            allow_not_complete_hp_vec=False):
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
@@ -22,6 +23,19 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             hyperparams_abbreviation_vec.append("_" + str(hyperparams))
 
     subfolders = [f"{hyperparams_name}{hyperparams}" for hyperparams in hyperparams_abbreviation_vec]
+
+    if allow_not_complete_hp_vec:
+        new_subfolders = []
+        new_hyperparams_vec = []
+        for i, subfolder in enumerate(subfolders):
+            curr_dataset_dir = os.path.join(dataset_dir, subfolder)
+            path = os.path.join(curr_dataset_dir, f"gen{n_synthetic_datasets-1}.csv")
+            if os.path.exists(path):
+                new_subfolders.append(subfolder)
+                new_hyperparams_vec.append(hyperparams_vec[i])
+        subfolders = new_subfolders
+        hyperparams_vec = new_hyperparams_vec
+
     with tqdm(total=len(subfolders) * n_synthetic_datasets) as pbar:
         models = subfolders
         result = pd.DataFrame({"n_epochs": models, "Accuracy": 0, "AUC": 0, "SD Accuracy": 0, "SD AUC": 0})
