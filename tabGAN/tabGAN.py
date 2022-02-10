@@ -20,19 +20,20 @@ from tqdm.auto import tqdm
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
-from .fast_nondominated_sort import fast_non_dominated_sort
-
 
 class TableGAN:
     """
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
 
-    def __init__(self, data, dim_latent=128, dim_hidden=256, batch_size=500, gumbel_temperature=0.5, n_critic=5,
-                 wgan_lambda=10, adam_lr=0.0002, adam_beta1=0, adam_beta2=0.999, ckpt_dir=None, ckpt_every=None,
-                 ckpt_max_to_keep=None, ckpt_name="ckpt_epoch", noise_discrete_unif_max=0,
-                 quantile_transformation_int=False, n_quantiles_int=1000, quantile_rand_transformation=True,
-                 qtr_fraction=0.4, qtr_apply_lbound=0.05, use_query=True):
+    def __init__(self, data,
+                 dim_hidden=256, batch_size=500, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
+                 quantile_transformation_int=True, quantile_rand_transformation=True,
+                 n_quantiles_int=1000, qtr_spread=0.4, dim_latent=128, qtr_lbound_apply=0.05,
+                 optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
+                 rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
+                 ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
+                 noise_discrete_unif_max=0, use_query=True, tf_make_train_step_graph=True):
         # Initialize variables
         self.data = data
         self.columns = data.columns
@@ -42,13 +43,17 @@ class TableGAN:
         self.dim_latent = dim_latent
         self.dim_hidden = dim_hidden
         self.gumbel_temperature = gumbel_temperature
-        self.adam_lr = adam_lr
-        self.adam_beta1 = adam_beta1
+        self.optimizer = optimizer
         self.n_critic = n_critic
         self.wgan_lambda = wgan_lambda
-        self.adam_lr = adam_lr
+        self.opt_lr = opt_lr
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
+        self.sgd_momentum = sgd_momentum
+        self.sgd_nesterov = sgd_nesterov
+        self.rmsprop_rho = rmsprop_rho
+        self.rmsprop_momentum = rmsprop_momentum
+        self.rmsprop_centered = rmsprop_centered
         self.ckpt_dir = ckpt_dir
         self.ckpt_every = ckpt_every
         self.ckpt_max_to_keep = ckpt_max_to_keep
@@ -58,10 +63,11 @@ class TableGAN:
         self.quantile_transformation_int = quantile_transformation_int
         self.quantile_rand_transformation = quantile_rand_transformation
         self.n_quantiles_int = n_quantiles_int
-        self.uninitialized_opt_vars = True
-        self.qtr_fraction = qtr_fraction
-        self.qtr_apply_lbound = qtr_apply_lbound
+        self.initialized_gan = False
+        self.qtr_spread = qtr_spread
+        self.qtr_lbound_apply = qtr_lbound_apply
         self.use_query = use_query
+        self.tf_make_train_step_graph = tf_make_train_step_graph
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -105,28 +111,40 @@ class TableGAN:
         # Create Gumbel-activation function
         tf.keras.utils.get_custom_objects().update({'gumbel_softmax': Activation(self.gumbel_softmax)})
 
-        # Create generator and discriminator objects as well as discriminator and generator optimizer
+        # Create generator and critic objects as well as critic and generator optimizer
         self.initialize_gan()
         # If needed create checkpoint manager
         if (self.ckpt_dir != None):
             self.initialize_cptk()
 
-    def initialize_gan(self):
+    def initialize_gan(self, tf_make_train_step_graph=True):
         """
         Internal function used for initializing the GAN architecture
         """
-        # Create generator and discriminator objects
+        # Create generator and critic objects
         self.generator = self.create_generator()
-        self.discriminator = self.create_discriminator()
+        self.critic = self.create_critic()
 
-        # Create optimizers for generator and discriminator
-        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=self.adam_lr, beta_1=self.adam_beta1,
-                                                            beta_2=self.adam_beta2)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=self.adam_lr, beta_1=self.adam_beta1,
-                                                                beta_2=self.adam_beta2)
+        # Create optimizers for generator and critic
+        if self.optimizer.tolower() == "adam":
+            self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2)
+            self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2)
+        elif self.optimizer.tolower() == "sgd":
+            self.generator_optimizer = tf.keras.optimizers.SGD(learning_rate=self.opt_lr, momentum=self.sgd_momentum, nesterov=self.sgd_nesterov)
+            self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, momentum=self.sgd_momentum, nesterov=self.sgd_nesterov)
+        elif self.optimizer.tolower() == "rmsprop":
+            self.generator_optimizer = self.tf.keras.optimizers.RMSprop(learning_rate=self.opt_lr, rho=self.rmsprop_rho, momentum=self.rmsprop_rho, centered=self.rmsprop_centered)
+            self.critic_optimizer = self.tf.keras.optimizers.RMSprop(learning_rate=self.opt_lr, rho=self.rmsprop_rho, momentum=self.rmsprop_rho, centered=self.rmsprop_centered)
+        else:
+            raise ValueError("Optimizer name not recognized. Currently only implemented optimizers: adam, sgd and rmsprop")
         self.start_epoch = 0
 
-        self.train_step = tf.function(self.train_step_func)
+        if tf_make_train_step_graph:
+            self.train_step = tf.function(self.train_step_func)
+        else:
+            self.train_step = self.train_step_func
+
+        self.initialized_gan = True
 
     def randomize_quantile_transformation(self, data):
         """
@@ -144,23 +162,23 @@ class TableGAN:
             for integer in quantiles_unique_integer:
                 curr_references = references[np.isclose(quantiles_curr, integer)]
                 n_curr_references = curr_references.shape[0]
-                if (n_curr_references >= self.qtr_apply_lbound * self.n_quantiles_int):
+                if (n_curr_references >= self.qtr_lbound_apply * self.n_quantiles_int):
                     mask = self.data_num[self.columns_int[i]] == integer
                     n_obs_curr = np.sum(mask)
                     curr_reference_range = curr_references[-1] - curr_references[0]
-                    low = curr_references[0] + curr_reference_range * (0.5 - self.qtr_fraction / 2)
-                    high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_fraction / 2)
+                    low = curr_references[0] + curr_reference_range * (0.5 - self.qtr_spread / 2)
+                    high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_spread / 2)
                     data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
         return data
 
     def initialize_cptk(self):
         """
-        Internal function for initializing checkpoint mangager used to save the progress of the model.
+        Internal function for initializing checkpoint manager used to save the progress of the model.
         """
         os.makedirs(self.ckpt_dir, exist_ok=True)
         self.ckpt = tf.train.Checkpoint(epoch=tf.Variable(0), generator_opt=self.generator_optimizer,
-                                        discriminator_opt=self.discriminator_optimizer, generator=self.generator,
-                                        discriminator=self.discriminator)
+                                        critic_opt=self.critic_optimizer, generator=self.generator,
+                                        critic=self.critic)
         self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, self.ckpt_dir, max_to_keep=self.ckpt_max_to_keep,
                                                        checkpoint_name=self.ckpt_name)
 
@@ -195,7 +213,7 @@ class TableGAN:
 
     def generate_data(self, n=None):
         """
-        Function for generating data used the data synthesizer
+        Function for generating data using the data synthesizer
         """
         if (n == None):
             n = self.nrow
@@ -220,9 +238,10 @@ class TableGAN:
         return pd.concat((pd.DataFrame(gen_data_num_scaled, columns=self.columns_num),
                           pd.DataFrame(gen_data_discrete_oh, columns=columns_discrete_oh)), axis=1)
 
-    def create_discriminator(self):
+    def create_critic(self):
         """
-        Internal function for creating the critic neural network.
+        Internal function for creating the critic neural network. Uses input parameters given to tableGAN to decide
+        between different critic architectures
         """
         input_numeric = Input(shape=(self.n_columns_num), name="Numeric_input")
         input_discrete = Input(shape=(self.n_columns_discrete_oh), name="Discrete_input")
@@ -235,13 +254,14 @@ class TableGAN:
             inputs = [input_numeric, input_discrete]
         hidden1 = Dense(self.dim_hidden, activation=LeakyReLU(), name="hidden1")(combined1)
         hidden2 = Dense(self.dim_hidden, activation=LeakyReLU(), name="hidden2")(hidden1)
-        output = Dense(1, name="output_discriminator")(hidden2)
+        output = Dense(1, name="output_critic")(hidden2)
         model = Model(inputs=inputs, outputs=output)
         return (model)
 
     def create_generator(self):
         """
-        Internal function for creating the generator neural network
+        Internal function for creating the generator neural network. Uses input parameters given to tableGAN to decide
+        between different critic architectures. Also uses the number of discrete columns to decide between architectures
         """
         latent = Input(shape=(self.dim_latent), name="Latent")
         if self.use_query:
@@ -255,7 +275,7 @@ class TableGAN:
         hidden2 = Dense(self.dim_hidden, activation=LeakyReLU(), name="Hidden2")(hidden1)
 
         if (self.n_columns_discrete == 0):
-            raise Exception("tableGAN not yet implemented for zero discrete columns")
+            raise ValueException("tableGAN not yet implemented for zero discrete columns")
         elif (self.n_columns_discrete == 1):
             output_discrete_i = Dense(self.categories_len[0], name="%s_output" % self.columns_discrete[0])(hidden2)
             output_discrete = Activation("gumbel_softmax", name="Gumbel_softmax")(output_discrete_i)
@@ -268,10 +288,13 @@ class TableGAN:
 
             output_discrete = concatenate(output_discrete_sep, name="Discrete_output")
 
+        if self.n_columns_num == 0:
+            raise ValueException("tableGAN not yet implemented for zero numerical columns")
         output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden2)
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return (model)
 
+    @tf.function
     def generate_latent(self, n):
         """
         Internal function for generating latent noise as input for generator
@@ -298,9 +321,9 @@ class TableGAN:
             data_num_batch = self.data_num_scaled[ix]
             data_discrete_oh_batch = self.data_discrete_oh[ix]
             with tf.GradientTape() as discr_tape:
-                output_discr_real = self.discriminator([data_num_batch, data_discrete_oh_batch, queries_batch],
+                output_discr_real = self.critic([data_num_batch, data_discrete_oh_batch, queries_batch],
                                                        training=True)
-                output_discr_fake = self.discriminator([gen_data_num, gen_data_discrete, queries_batch], training=True)
+                output_discr_fake = self.critic([gen_data_num, gen_data_discrete, queries_batch], training=True)
                 loss_discr = - tf.reduce_mean(output_discr_real) + tf.reduce_mean(output_discr_fake)
 
                 epsilon = tf.random.uniform([n_batch, 1])
@@ -311,7 +334,7 @@ class TableGAN:
                     discr_tape_comb.watch(combined_data_num)
                     discr_tape_comb.watch(combined_data_discrete)
                     discr_tape_comb.watch(queries_batch)
-                    loss_discr_combined = self.discriminator([combined_data_num, combined_data_discrete, queries_batch],
+                    loss_discr_combined = self.critic([combined_data_num, combined_data_discrete, queries_batch],
                                                              training=True)
                 combined_gradients = discr_tape_comb.gradient(loss_discr_combined,
                                                               [combined_data_num, combined_data_discrete,
@@ -320,103 +343,100 @@ class TableGAN:
 
                 loss_discr_gradients = self.wgan_lambda * tf.reduce_mean((tf.norm(combined_gradients, axis=1) - 1) ** 2)
                 loss_discr_combined = loss_discr + loss_discr_gradients
-            gradients_of_discriminator = discr_tape.gradient(loss_discr_combined,
-                                                             self.discriminator.trainable_variables)
-            self.discriminator_optimizer.apply_gradients(
-                zip(gradients_of_discriminator, self.discriminator.trainable_variables))
+            gradients_of_critic = discr_tape.gradient(loss_discr_combined,
+                                                             self.critic.trainable_variables)
+            self.critic_optimizer.apply_gradients(
+                zip(gradients_of_critic, self.critic.trainable_variables))
 
         queries = tf.zeros([self.data.shape[0], self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
         noise = self.generate_latent(self.data.shape[0])
         gen_data_num, gen_data_discrete = self.generator([noise, queries], training=True)
-        output_discr_real = self.discriminator([self.data_num_scaled, self.data_discrete_oh, queries], training=True)
-        output_discr_fake = self.discriminator([gen_data_num, gen_data_discrete, queries], training=True)
+        output_discr_real = self.critic([self.data_num_scaled, self.data_discrete_oh, queries], training=True)
+        output_discr_fake = self.critic([gen_data_num, gen_data_discrete, queries], training=True)
         em_distance = tf.reduce_mean(output_discr_real) - tf.reduce_mean(output_discr_fake)
 
         noise = self.generate_latent(n_batch)
         with tf.GradientTape() as gen_tape:
             gen_data_num, gen_data_discrete = self.generator([noise, queries_batch], training=True)
             loss_gen = - tf.reduce_mean(
-                self.discriminator([gen_data_num, gen_data_discrete, queries_batch], training=True))
+                self.critic([gen_data_num, gen_data_discrete, queries_batch], training=True))
 
         gradients_of_generator = gen_tape.gradient(loss_gen, self.generator.trainable_variables)
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
 
         return em_distance, loss_gen
 
-    def train(self, n_epochs, batch_size=None, restart_training=False, plot2D_image=False, plot2D_num_cols=[0, 1],
-              plot2D_discrete_col=None, plot2D_color_opacity=0.5, tot_save_img=20, plot2D_save_int=None,
-              plot2D_background_func=None, n_img_horiz=5, plot2D_inv_scale=True, plot_loss=True, plot_loss_return=None,
-              loss_plot_type="scatter", loss_plot_update_every=1, save_path=None, title_with_loss=False,
-              progress_bar=False, progress_bar_desc=None, n_test=None, ckpt_every=None, time_plot=False, save_dir=None,
-              filename_train_loss="train_loss.jpg", filename_plot2D="train_plot2D.jpg", save_loss=False,
-              plot_train_loss_both=False):
+    def train(self, n_epochs, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
+              plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
+              plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_train_step_graph=None,
+              save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
+              plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
+              plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
+              plot2D_n_test=None, plot_loss_return=None):
         """
         Function for training the data synthesizer (training the GAN architecture).
         """
+        if tf_make_train_step_graph is None:
+            tf_make_train_step_graph=self.tf_make_train_step_graph
+            self.initialized_gan=False
+
         if plot_loss and plot2D_image:
             raise ValueError("plot_loss and plot2D_image can not both be True at the same time")
 
-        if (batch_size == None):
+        if batch_size == None:
             batch_size = self.batch_size
-        if (plot2D_save_int != None):
+        if plot2D_save_int != None:
             plot2D_save_epochs = np.arange(0, n_epochs, plot2D_save_int)
-            tot_save_img = len(save_epochs)
+            plot2D_n_save_img = len(save_epochs)
         else:
-            plot2D_save_epochs = np.linspace(0, n_epochs, tot_save_img).astype(int)
+            plot2D_save_epochs = np.linspace(0, n_epochs, plot2D_n_save_img).astype(int)
 
-        if plot_loss_return is None:
-            if plot_loss:
-                plot_loss_return = True
-            else:
-                plot_loss_return = False
+        if plot2D_n_test == None:
+            plot2D_n_test = self.nrow
 
-        if (n_test == None):
-            n_test = self.nrow
-
-        if (self.ckpt_dir != None and ckpt_every == None):
+        if (not self.ckpt_dir is None) and (ckpt_every is None):
             if (self.ckpt_every == None):
                 ckpt_every = n_epochs
             else:
                 ckpt_every = self.ckpt_every
 
-        if restart_training:
-            if not self.uninitialized_opt_vars:
-                self.initialize_gan()
-            if not self.ckpt_dir is None:
-                shutil.rmtree(self.ckpt_dir)
-                os.makedirs(self.ckpt_dir, exist_ok=True)
-                self.initialize_cptk()
+        if restart_training or not self.initialized_gan:
+            self.initialize_gan(tf_make_train_step_graph=tf_make_train_step_graph)
 
-        self.uninitialized_opt_vars = False
+        if restart_training and not self.ckpt_dir is None:
+            shutil.rmtree(self.ckpt_dir)
+            os.makedirs(self.ckpt_dir, exist_ok=True)
+            self.initialize_cptk()
 
         batch_per_epoch = int(self.nrow / batch_size)
 
-        n_img_vert = ceil(tot_save_img / n_img_horiz)
+        n_img_vert = ceil(plot2D_n_save_img / plot2D_n_img_horiz)
 
         fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
         ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
 
         if plot2D_image:
-            fig_plot2D = plt.figure(figsize=(16, 16 / n_img_horiz * n_img_vert))
-            # fig_plot2D.suptitle('Visalization of counterfactual generator training for %d epochs' % n_epochs)
-            noise_test = self.generate_latent(n_test)
-            queries_test = tf.zeros([n_test, self.n_columns_discrete_oh])
+            fig_plot2D = plt.figure(figsize=(16, 16 / plot2D_n_img_horiz * n_img_vert))
+            if not plot2D_title is None:
+                fig_plot2D.suptitle(plot2D_title)
+            noise_test = self.generate_latent(plot2D_n_test)
+            queries_test = tf.zeros([plot2D_n_test, self.n_columns_discrete_oh])
 
         if plot_loss:
             hdisplay = display("", display_id=True)
+            gen_loss_vec = np.zeros(n_epochs)
+            em_distance_vec = np.zeros(n_epochs)
 
-        if time_plot:
+        if plot_time:
             time_epoch_vec = np.zeros(n_epochs + 1)
 
-        gen_loss_vec = np.zeros(n_epochs)
-        em_distance_vec = np.zeros(n_epochs)
         epochs = np.arange(self.start_epoch + 1, self.start_epoch + n_epochs + 1)
 
         img_count = 1
         with tqdm(total=n_epochs, leave=False, disable=not progress_bar, desc=progress_bar_desc) as pbar:
             # manually enumerate epochs
             for epoch in range(0, n_epochs + 1):
-                if (time_plot):
+                if (plot_time):
                     time_before_epoch = time.perf_counter()
                 if (epoch > 0):
                     em_distance = g_loss = 0
@@ -426,20 +446,19 @@ class TableGAN:
                         em_distance += em_distance_batch
                     g_loss /= batch_per_epoch
                     em_distance /= batch_per_epoch
-
-                    gen_loss_vec[epoch - 1] = g_loss
-                    em_distance_vec[epoch - 1] = em_distance
-
+                    
                     if plot_loss:
-                        if (epoch % loss_plot_update_every == 0 or epoch in [1, n_epochs]):
+                        gen_loss_vec[epoch - 1] = g_loss
+                        em_distance_vec[epoch - 1] = em_distance
+                        if (epoch % plot_loss_update_every == 0 or epoch in [1, n_epochs]):
                             if (epoch > 1):
-                                scatter_discr.remove()
-                                if plot_train_loss_both:
+                                scatter_critic.remove()
+                                if plot_loss_incl_generator_loss:
                                     scatter_gen.remove()
 
-                            scatter_discr = ax_loss.scatter(epochs[:(epoch - 1)], em_distance_vec[:(epoch - 1)],
+                            scatter_critic = ax_loss.scatter(epochs[:(epoch - 1)], em_distance_vec[:(epoch - 1)],
                                                             color="red", label="EM distance")
-                            if plot_train_loss_both:
+                            if plot_loss_incl_generator_loss:
                                 scatter_gen = ax_loss.scatter(epochs[:(epoch - 1)], gen_loss_vec[:(epoch - 1)],
                                                               color="blue", label="Generator loss")
                             if (epoch == 1):
@@ -456,7 +475,7 @@ class TableGAN:
                     self.ckpt.epoch.assign_add(1)
                 if plot2D_image:
                     if epoch in plot2D_save_epochs:
-                        ax_plot2D = fig_plot2D.add_subplot(n_img_vert, n_img_horiz, img_count)
+                        ax_plot2D = fig_plot2D.add_subplot(n_img_vert, plot2D_n_img_horiz, img_count)
                         gen_data_num, gen_data_discrete = self.generator([noise_test, queries_test])
 
                         if not plot2D_background_func is None:
@@ -486,58 +505,59 @@ class TableGAN:
                         clear_output(wait=True)
                         img_count += 1
 
-                if (time_plot):
+                if (plot_time):
                     time_epoch_vec[epoch] = time.perf_counter() - time_before_epoch
 
-        plt.close(fig_loss)
-        fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
-        ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
-        if (loss_plot_type == "scatter"):
+        if plot_loss:
+            plt.close(fig_loss)
+        
+        if plot_loss or filename_plot_loss:
+            fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
+            ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
+            if plot_loss_type == "scatter":
+                plot_loss_func = ax_loss.scatter
+            elif plot_loss_type == "line":
+                plot_loss_func = ax_loss.plot
+            else:
+                raise Exception("Unknown plot_loss_type. Only scatter and line implemented.")
             ax_loss.scatter(epochs, em_distance_vec, color="red", label="EM distance")
-            if plot_train_loss_both:
+            if plot_loss_incl_generator_loss:
                 ax_loss.scatter(epochs, gen_loss_vec, color="blue", label="Generator loss")
-        elif loss_plot_type == "line":
-            ax_loss.plot(epochs, em_distance_vec, color="red", label="EM distance")
-            if plot_train_loss_both:
-                ax_loss.plot(epochs, gen_loss_vec, color="blue", label="Generator loss")
-        else:
-            raise Exception("Unknown loss_plot_type. Only scatter and line implemented.")
-        ax_loss.legend()
+            ax_loss.legend()
+            plt.close(fig_loss)
 
-        plt.close(fig_loss)
-
-        if not (plot_loss_return or time_plot or time_plot):
+        if not (plot_loss_return or plot_time or plot_time):
             return None
 
         return_figures = ()
 
-        if plot_loss_return:
+        if plot_loss:
             return_figures += (fig_loss,)
 
-        if (plot2D_image):
+        if plot2D_image:
             plt.close(fig_plot2D)
             return_figures += (fig_plot2D,)
 
-        if (time_plot):
+        if plot_time:
             epochs = np.arange(self.start_epoch, self.start_epoch + n_epochs + 1)
-            fig_time_plot = plt.figure()
+            fig_plot_time = plt.figure()
             plt.plot(epochs, time_epoch_vec)
             plt.title("Time for each epoch")
-            plt.close(fig_time_plot)
-            return_figures += (fig_time_plot,)
+            plt.close(fig_plot_time)
+            return_figures += (fig_plot_time,)
 
         if not save_dir is None:
-            if plot2D_image and (not filename_plot2D is None):
+            if not filename_plot2D is None:
                 save_path = os.path.join(save_dir, filename_plot2D)
                 os.makedirs(save_dir, exist_ok=True)
                 fig_plot2D.savefig(save_path)
 
-            if (plot_loss or save_loss) and not filename_train_loss is None:
-                save_path = os.path.join(save_dir, filename_train_loss)
+            if not filename_plot_loss is None:
+                save_path = os.path.join(save_dir, filename_plot_loss)
                 os.makedirs(save_dir, exist_ok=True)
                 fig_loss.savefig(save_path)
 
-        return (return_figures)
+        return return_figures
 
     def restore_checkpoint(self, epoch="latest"):
         """
@@ -547,82 +567,8 @@ class TableGAN:
             ckpt_path = self.ckpt_manager.latest_checkpoint
         else:
             ckpt_path = self.ckpt_prefix + "-" + str(epoch)
-        if self.uninitialized_opt_vars:
-            self.ckpt.restore(ckpt_path).expect_partial()
-        else:
+        if self.initialized_gan:
             self.ckpt.restore(ckpt_path).assert_consumed()
+        else:
+            self.ckpt.restore(ckpt_path).expect_partial()
         self.start_epoch = self.ckpt.epoch.numpy()
-
-    def use_critic_on_data(self, data):
-        """
-        Internal function for preprocessing data and then fetching it to the critic. Mostly used for debugging purposes.
-        """
-        num_data = data[self.columns_num]
-        discrete_data = data[self.columns_discrete]
-        num_data_scaled = self.scaler_num.transform(num_data)
-        discrete_data_oh = self.oh_encoder.transform(discrete_data)
-        queries_batch = tf.zeros([data.shape[0], self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
-        return (self.discriminator.predict([num_data_scaled, discrete_data_oh, queries_batch]))
-
-    def generate_counterfactuals(self, n_to_keep, pred_func, x_obs, wanted_range=None, n_to_generate=None,
-                                 add_plausibility_objective=False, epsilon_num_percent=0.005, return_objectives=True):
-        """
-        Function for generating counterfactuals
-        """
-        if n_to_generate is None:
-            n_to_generate = n_to_keep * 1000
-        if wanted_range is None:
-            wanted_label = 1 - np.round(pred_func(x_obs))
-            wanted_range = np.sort([0.5, wanted_label])
-
-        gen_data = self.generate_data(n_to_generate)
-        pred_gen_data = pred_func(gen_data)
-        gen_data = gen_data.loc[(pred_gen_data >= wanted_range[0]) & (pred_gen_data <= wanted_range[1])].reset_index(
-            drop=True)
-        if gen_data.shape[0] == 0:
-            raise RuntimeError("None of the generated observations had a prediction value in the wanted range")
-
-        n_objectives = 2
-        objective_names = ["Gower distance", "Number changed"]
-        if add_plausibility_objective:
-            n_objectives += 1
-            objective_names += ["Plausibility"]
-        objectives = np.zeros([gen_data.shape[0], n_objectives])
-        range_num_values_dict = {}
-        for i, col_num in enumerate(self.columns_num):
-            range_num_values_dict[col_num] = np.max(self.data[col_num]) - np.min(self.data[col_num])
-
-        for i, col_num in enumerate(self.columns_num):
-            objectives[:, 0] += np.abs(gen_data[col_num].to_numpy() - x_obs[col_num].to_numpy()) / \
-                                range_num_values_dict[col_num]
-            objectives[:, 1] += np.where(np.isclose(gen_data[col_num], x_obs[col_num],
-                                                    atol=epsilon_num_percent * range_num_values_dict[col_num]), 0, 1)
-
-        for i, col_discrete in enumerate(self.columns_discrete):
-            binary_is_cat_changed = np.where(gen_data[col_discrete].to_numpy() == x_obs[col_discrete].to_numpy(), 0, 1)
-            objectives[:, 0] += binary_is_cat_changed
-            objectives[:, 1] += binary_is_cat_changed
-
-        objectives[:, 0] /= self.n_columns
-
-        if add_plausibility_objective:
-            raise ValueError("Not yet implemented")
-
-        rank_list = fast_non_dominated_sort(objectives, minimize=True)
-        n_each_rank = [len(rank_group) for rank_group in rank_list]
-        cumsum_each_rank = np.cumsum(n_each_rank)
-        if cumsum_each_rank[-1] < n_to_keep:
-            raise RuntimeError(
-                "Not enough valid counterfactuals were generated,"\
-                "increase the parameter n_to_generate to decrease the chance of this happening."
-            )
-        last_needed_rank = np.where(np.greater_equal(cumsum_each_rank, n_to_keep))[0][0]
-        rank_list = rank_list[:last_needed_rank + 1]
-
-        ranking = [index for rank_group in rank_list for index in rank_group]
-
-        gen_data = gen_data.iloc[ranking].head(n_to_keep).reset_index(drop=True)
-        if return_objectives:
-            df_objectives = pd.DataFrame(objectives[ranking[:n_to_keep],], columns=objective_names)
-            gen_data = gen_data.join(df_objectives)
-        return gen_data

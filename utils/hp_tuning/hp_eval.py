@@ -10,20 +10,27 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             plot_sd=True, plot_separate=False, subfolder=None,
                                             hyperparams_name="hyperparam", x_scale="linear",
                                             incl_comparison_folder=True,
-                                            allow_not_complete_hp_vec=False):
+                                            allow_not_complete_hp_vec=False,
+                                            legend_title=None):
+    hyperparams_vec = sorted(hyperparams_vec)
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
         dataset_dir = os.path.join(dataset_dir, f"{hyperparams_name}_comparison")
     hyperparams_abbreviation_vec = []
+    combined_hp_tuning = False
     for hyperparams in hyperparams_vec:
-        if isinstance(hyperparams, tuple):
+        if isinstance(hyperparams, (list, tuple)):
+            combined_hp_tuning=True
+            if len(hyperparams) > 2:
+                raise ValueError("Method not yet implemented for tuning more than two hyperparameters simultaneously")
             hyperparams_abbreviation_vec.append("".join("_" + str(s) for s in hyperparams))
         else:
+            if combined_hp_tuning:
+                raise ValueError("The number of hyperparameters given must be equal for all combinations.")
             hyperparams_abbreviation_vec.append("_" + str(hyperparams))
 
     subfolders = [f"{hyperparams_name}{hyperparams}" for hyperparams in hyperparams_abbreviation_vec]
-
     if allow_not_complete_hp_vec:
         new_subfolders = []
         new_hyperparams_vec = []
@@ -57,27 +64,47 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             accuracy_std = np.std(accuracy_vec)
             auc_std = np.std(auc_vec)
             result.iloc[i, 1:] = [accuracy, auc, accuracy_std, auc_std]
-    fig, ax = plt.subplots(1, figsize=figsize)
-    ax.set_xscale(x_scale)
-    color_accuracy = next(ax._get_lines.prop_cycler)['color']
-    color_auc = next(ax._get_lines.prop_cycler)['color']
-    plt.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy)
-    plt.scatter(hyperparams_vec, result["Accuracy"], color=color_accuracy)
-    if plot_sd:
-        plt.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
-                         result["Accuracy"] + result["SD Accuracy"], label=r"Accuracy $\pm$ SD Accuracy", alpha=0.5,
-                         color=color_accuracy)
-    if plot_separate:
+    if combined_hp_tuning:
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
+        axis_names = ["Accuracy", "AUC"]
+        hp1_vec = [hp1 for (hp1, hp2) in hyperparams_vec]
+        hp2_vec = np.array([hp2 for (hp1, hp2) in hyperparams_vec])
+        hp2_vec_unique = np.sort(np.unique(hp2_vec)).tolist()
+        for i, hp2 in enumerate(hp2_vec_unique):
+            curr_color = color_accuracy = next(axes[1]._get_lines.prop_cycler)['color']
+            curr_hp1_vec = np.extract(hp2_vec == hp2, hp1_vec)
+            for j, ax in enumerate(axes):
+                ax.plot(curr_hp1_vec, result.loc[hp2_vec == hp2, axis_names[j]],
+                             label=hp2, color=curr_color)
+                ax.scatter(curr_hp1_vec, result.loc[hp2_vec == hp2, axis_names[j]], color=curr_color)
+        for i, ax in enumerate(axes):
+            ax.set_xscale(x_scale)
+            ax.set_title(axis_names[i])
+            ax.legend(loc=legend_pos, title=legend_title)
+        plt.plot()
+
+    else:
         fig, ax = plt.subplots(1, figsize=figsize)
         ax.set_xscale(x_scale)
-    plt.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc)
-    plt.scatter(hyperparams_vec, result["AUC"], color=color_auc)
-    if plot_sd:
-        plt.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
-                         label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
-    plt.legend(loc=legend_pos)
-    if not save_path is None:
-        if not save_dir is None:
-            save_path = os.path.join(save_dir, save_path)
-        fig.savefig(save_path)
-    return result
+        color_accuracy = next(ax._get_lines.prop_cycler)['color']
+        color_auc = next(ax._get_lines.prop_cycler)['color']
+        plt.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy)
+        plt.scatter(hyperparams_vec, result["Accuracy"], color=color_accuracy)
+        if plot_sd:
+            plt.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
+                             result["Accuracy"] + result["SD Accuracy"], label=r"Accuracy $\pm$ SD Accuracy", alpha=0.5,
+                             color=color_accuracy)
+        if plot_separate:
+            fig, ax = plt.subplots(1, figsize=figsize)
+            ax.set_xscale(x_scale)
+        plt.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc)
+        plt.scatter(hyperparams_vec, result["AUC"], color=color_auc)
+        if plot_sd:
+            plt.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
+                             label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
+        plt.legend(loc=legend_pos)
+        if not save_path is None:
+            if not save_dir is None:
+                save_path = os.path.join(save_dir, save_path)
+            fig.savefig(save_path)
+        return result

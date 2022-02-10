@@ -15,10 +15,7 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
                                                             overwrite_dataset=True,
                                                             progress_bar=True,
                                                             progress_bar_subprocess=True,
-                                                            progress_bar_subsubprocess=None,
-                                                            force_tqdm_cmd=False):
-    if force_tqdm_cmd:
-        from tqdm import tqdm
+                                                            progress_bar_subsubprocess=None):
     if progress_bar_subsubprocess is None:
         progress_bar_subsubprocess=progress_bar_subprocess
     if subfolder is not None:
@@ -46,11 +43,13 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
         if not plot_only_new_progress:
             pbar.update(len(hyperparams_vec) - len(hyperparams_new_vec))
         for i, hyperparams in enumerate(hyperparams_new_vec):
-            if isinstance(hyperparams, tuple):
+            if isinstance(hyperparams, (list, tuple)):
                 hyperparams_abbreviation = "".join("_" + str(s) for s in hyperparams)
+                tabGAN = create_tabGAN_func(*hyperparams)
             else:
                 hyperparams_abbreviation = "_" + str(hyperparams)
-            tabGAN = create_tabGAN_func(hyperparams)
+                tabGAN = create_tabGAN_func(hyperparams)
+
             generate_multiple_datasets(tabGAN, dataset_dir, n_synthetic_datasets, n_epochs=n_epochs,
                                        batch_size=batch_size,
                                        subfolder="{}{}".format(hyperparams_name, hyperparams_abbreviation),
