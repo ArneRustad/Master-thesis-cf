@@ -8,7 +8,9 @@ import numpy as np
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
                                             save_dir=None, save_path=None, figsize=[14, 8], legend_pos="best",
                                             plot_sd=True, plot_separate=False, subfolder=None,
-                                            hyperparams_name="hyperparam", x_scale="linear",
+                                            hyperparams_name="hyperparam",
+                                            hyperparams_subname=None,
+                                            x_scale="linear",
                                             incl_comparison_folder=True,
                                             allow_not_complete_hp_vec=False,
                                             legend_title=None):
@@ -24,7 +26,12 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             combined_hp_tuning=True
             if len(hyperparams) > 2:
                 raise ValueError("Method not yet implemented for tuning more than two hyperparameters simultaneously")
-            hyperparams_abbreviation_vec.append("".join("_" + str(s) for s in hyperparams))
+            if hyperparams_subname is None:
+                hyperparams_abbreviation_vec.append("".join("_" + str(s) for s in hyperparams))
+            else:
+                if len(hyperparams_subname) != len(hyperparams):
+                    raise ValueError("Length of hyperparams_subname vector must either be of equal length to hyperparams vector or hyperparams_subname must be equal to None")
+                hyperparams_abbreviation_vec.append("".join("_" + str(n) + "_" + str(s) for n, s in zip(hyperparams_subname, hyperparams)))
         else:
             if combined_hp_tuning:
                 raise ValueError("The number of hyperparameters given must be equal for all combinations.")
@@ -45,7 +52,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
     with tqdm(total=len(subfolders) * n_synthetic_datasets) as pbar:
         models = subfolders
-        result = pd.DataFrame({"n_epochs": models, "Accuracy": 0, "AUC": 0, "SD Accuracy": 0, "SD AUC": 0})
+        result = pd.DataFrame({"Hyperparameters": models, "Accuracy": 0, "AUC": 0, "SD Accuracy": 0, "SD AUC": 0})
         accuracy, auc, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
 
         for i, subfolder in enumerate(subfolders):
@@ -75,8 +82,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             curr_hp1_vec = np.extract(hp2_vec == hp2, hp1_vec)
             for j, ax in enumerate(axes):
                 ax.plot(curr_hp1_vec, result.loc[hp2_vec == hp2, axis_names[j]],
-                             label=hp2, color=curr_color)
-                ax.scatter(curr_hp1_vec, result.loc[hp2_vec == hp2, axis_names[j]], color=curr_color)
+                             label=hp2, color=curr_color, marker="o")
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
             ax.set_title(axis_names[i])
@@ -88,8 +94,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         ax.set_xscale(x_scale)
         color_accuracy = next(ax._get_lines.prop_cycler)['color']
         color_auc = next(ax._get_lines.prop_cycler)['color']
-        plt.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy)
-        plt.scatter(hyperparams_vec, result["Accuracy"], color=color_accuracy)
+        plt.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy, marker="o")
         if plot_sd:
             plt.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
                              result["Accuracy"] + result["SD Accuracy"], label=r"Accuracy $\pm$ SD Accuracy", alpha=0.5,
@@ -97,8 +102,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         if plot_separate:
             fig, ax = plt.subplots(1, figsize=figsize)
             ax.set_xscale(x_scale)
-        plt.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc)
-        plt.scatter(hyperparams_vec, result["AUC"], color=color_auc)
+        plt.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc, marker="o")
         if plot_sd:
             plt.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
                              label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
@@ -107,4 +111,4 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if not save_dir is None:
                 save_path = os.path.join(save_dir, save_path)
             fig.savefig(save_path)
-        return result
+    return result

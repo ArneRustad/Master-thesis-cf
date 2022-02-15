@@ -25,11 +25,10 @@ class TableGAN:
     """
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
-
-    def __init__(self, data,
-                 dim_hidden=256, batch_size=500, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
+    def __init__(self, data, batch_size=500,
+                 dim_hidden=256, dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
                  quantile_transformation_int=True, quantile_rand_transformation=True,
-                 n_quantiles_int=1000, qtr_spread=0.4, dim_latent=128, qtr_lbound_apply=0.05,
+                 n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05, adam_amsgrad=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
@@ -49,6 +48,7 @@ class TableGAN:
         self.opt_lr = opt_lr
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
+        self.adam_amsgrad = adam_amsgrad
         self.sgd_momentum = sgd_momentum
         self.sgd_nesterov = sgd_nesterov
         self.rmsprop_rho = rmsprop_rho
@@ -126,13 +126,13 @@ class TableGAN:
         self.critic = self.create_critic()
 
         # Create optimizers for generator and critic
-        if self.optimizer.tolower() == "adam":
-            self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2)
-            self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2)
-        elif self.optimizer.tolower() == "sgd":
+        if self.optimizer.lower() == "adam":
+            self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2, amsgrad=self.adam_amsgrad)
+            self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, beta_1=self.adam_beta1, beta_2=self.adam_beta2, amsgrad=self.adam_amsgrad)
+        elif self.optimizer.lower() == "sgd":
             self.generator_optimizer = tf.keras.optimizers.SGD(learning_rate=self.opt_lr, momentum=self.sgd_momentum, nesterov=self.sgd_nesterov)
-            self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=self.opt_lr, momentum=self.sgd_momentum, nesterov=self.sgd_nesterov)
-        elif self.optimizer.tolower() == "rmsprop":
+            self.critic_optimizer = tf.keras.optimizers.SGD(learning_rate=self.opt_lr, momentum=self.sgd_momentum, nesterov=self.sgd_nesterov)
+        elif self.optimizer.lower() == "rmsprop":
             self.generator_optimizer = self.tf.keras.optimizers.RMSprop(learning_rate=self.opt_lr, rho=self.rmsprop_rho, momentum=self.rmsprop_rho, centered=self.rmsprop_centered)
             self.critic_optimizer = self.tf.keras.optimizers.RMSprop(learning_rate=self.opt_lr, rho=self.rmsprop_rho, momentum=self.rmsprop_rho, centered=self.rmsprop_centered)
         else:
@@ -372,7 +372,8 @@ class TableGAN:
               save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
               plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
               plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
-              plot2D_n_test=None, plot_loss_return=None):
+              plot2D_n_test=None, plot_loss_return=None,
+              tf_profile_train_step_range=[-1, -1], tf_profile_log_dir="log_tabGAN"):
         """
         Function for training the data synthesizer (training the GAN architecture).
         """
@@ -412,9 +413,6 @@ class TableGAN:
 
         n_img_vert = ceil(plot2D_n_save_img / plot2D_n_img_horiz)
 
-        fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
-        ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
-
         if plot2D_image:
             fig_plot2D = plt.figure(figsize=(16, 16 / plot2D_n_img_horiz * n_img_vert))
             if not plot2D_title is None:
@@ -424,6 +422,8 @@ class TableGAN:
 
         if plot_loss:
             hdisplay = display("", display_id=True)
+            fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
+            ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
             gen_loss_vec = np.zeros(n_epochs)
             em_distance_vec = np.zeros(n_epochs)
 
@@ -440,12 +440,18 @@ class TableGAN:
                     time_before_epoch = time.perf_counter()
                 if (epoch > 0):
                     em_distance = g_loss = 0
+                    if tf_profile_train_step_range[0] == epoch:
+                        tf.profiler.experimental.start(tf_profile_log_dir)
                     for batch in range(batch_per_epoch):
-                        em_distance_batch, gen_loss_batch = self.train_step(batch_size)
+                        with tf.profiler.experimental.Trace('train_step', step_num=epoch, _r=1):
+                            em_distance_batch, gen_loss_batch = self.train_step(batch_size)
                         g_loss += gen_loss_batch
                         em_distance += em_distance_batch
                     g_loss /= batch_per_epoch
                     em_distance /= batch_per_epoch
+
+                    if tf_profile_train_step_range[1] == epoch:
+                        tf.profiler.experimental.stop(tf_profile_log_dir)
                     
                     if plot_loss:
                         gen_loss_vec[epoch - 1] = g_loss

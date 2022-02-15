@@ -8,6 +8,7 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
                                                             n_synthetic_datasets, restart=False,
                                                             redo_hyperparams_vec=[], plot_only_new_progress=True,
                                                             hyperparams_name="hyperparam",
+                                                            hyperparams_subname=None,
                                                             subfolder=None,
                                                             tracker_name=None,
                                                             tracker_dir=None,
@@ -44,7 +45,12 @@ def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, 
             pbar.update(len(hyperparams_vec) - len(hyperparams_new_vec))
         for i, hyperparams in enumerate(hyperparams_new_vec):
             if isinstance(hyperparams, (list, tuple)):
-                hyperparams_abbreviation = "".join("_" + str(s) for s in hyperparams)
+                if not hyperparams_subname is None:
+                    if len(hyperparams_subname) != len(hyperparams):
+                        raise ValueError("Length of hyperparams_subname vector must either be of equal length to hyperparams vector or hyperparams_subname must be equal to None")
+                    hyperparams_abbreviation = "".join("_" + str(n) + "_" + str(s) for n, s in zip(hyperparams_subname, hyperparams))
+                else:
+                    hyperparams_abbreviation = "".join("_" + str(s) for s in hyperparams)
                 tabGAN = create_tabGAN_func(*hyperparams)
             else:
                 hyperparams_abbreviation = "_" + str(hyperparams)
