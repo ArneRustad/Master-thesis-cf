@@ -5,7 +5,7 @@ print("Starting hyperparameter tuning")
 import utils
 import importlib
 tabGAN = importlib.import_module("tabGAN")
-from tabGAN import TableGAN
+from tabGAN import TabGAN
 from src import constants as const
 import numpy as np
 import pandas as pd
@@ -36,7 +36,7 @@ n_synthetic_datasets_sgd_comparison = 10
 n_epochs_sgd = 100
 
 def create_tabGAN_for_sgd(sgd_momentum, sgd_nesterov):
-    tg_qtr = TableGAN(data_train, n_critic = n_critic, optimizer="sgd", opt_lr = adam_lr, sgd_momentum=sgd_momentum,
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, optimizer="sgd", opt_lr = adam_lr, sgd_momentum=sgd_momentum,
                       sgd_nesterov=sgd_nesterov, quantile_transformation_int = True,
                       quantile_rand_transformation = True, noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr
@@ -70,7 +70,7 @@ n_synthetic_datasets_adam_betas_comparison = 10
 n_epochs_adam_betas = 100
 
 def create_tabGAN_for_adam_betas(adam_beta1, adam_beta2, adam_amsgrad):
-    tg_qtr = TableGAN(data_train, n_critic = n_critic, opt_lr = adam_lr, adam_beta1 = adam_beta1, adam_amsgrad=adam_amsgrad,
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = adam_lr, adam_beta1 = adam_beta1, adam_amsgrad=adam_amsgrad,
                       adam_beta2=adam_beta2, quantile_transformation_int = True, quantile_rand_transformation = True,
                       noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr

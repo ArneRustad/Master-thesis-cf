@@ -21,7 +21,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 
-class TableGAN:
+class TabGAN:
     """
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
@@ -240,7 +240,7 @@ class TableGAN:
 
     def create_critic(self):
         """
-        Internal function for creating the critic neural network. Uses input parameters given to tableGAN to decide
+        Internal function for creating the critic neural network. Uses input parameters given to TabGAN to decide
         between different critic architectures
         """
         input_numeric = Input(shape=(self.n_columns_num), name="Numeric_input")
@@ -260,7 +260,7 @@ class TableGAN:
 
     def create_generator(self):
         """
-        Internal function for creating the generator neural network. Uses input parameters given to tableGAN to decide
+        Internal function for creating the generator neural network. Uses input parameters given to TabGAN to decide
         between different critic architectures. Also uses the number of discrete columns to decide between architectures
         """
         latent = Input(shape=(self.dim_latent), name="Latent")
@@ -275,7 +275,7 @@ class TableGAN:
         hidden2 = Dense(self.dim_hidden, activation=LeakyReLU(), name="Hidden2")(hidden1)
 
         if (self.n_columns_discrete == 0):
-            raise ValueException("tableGAN not yet implemented for zero discrete columns")
+            raise ValueException("TabGAN not yet implemented for zero discrete columns")
         elif (self.n_columns_discrete == 1):
             output_discrete_i = Dense(self.categories_len[0], name="%s_output" % self.columns_discrete[0])(hidden2)
             output_discrete = Activation("gumbel_softmax", name="Gumbel_softmax")(output_discrete_i)
@@ -289,7 +289,7 @@ class TableGAN:
             output_discrete = concatenate(output_discrete_sep, name="Discrete_output")
 
         if self.n_columns_num == 0:
-            raise ValueException("tableGAN not yet implemented for zero numerical columns")
+            raise ValueException("TabGAN not yet implemented for zero numerical columns")
         output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden2)
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return (model)

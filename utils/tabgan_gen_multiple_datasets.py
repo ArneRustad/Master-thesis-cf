@@ -22,4 +22,3 @@ def generate_multiple_datasets(tabgan, dataset_dir, n_synthetic_datasets, n_epoc
             else:
                 pass
             pbar.update(1)
-            pbar.refresh()

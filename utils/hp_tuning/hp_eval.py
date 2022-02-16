@@ -4,28 +4,37 @@ from tqdm.auto import tqdm
 from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 import pandas as pd
 import numpy as np
+from matplotlib.lines import Line2D
+
 
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
-                                            save_dir=None, save_path=None, figsize=[14, 8], legend_pos="best",
+                                            save_dir=None, save_path=None, figsize=[14, 8], legend_pos=None,
                                             plot_sd=True, plot_separate=False, subfolder=None,
                                             hyperparams_name="hyperparam",
                                             hyperparams_subname=None,
                                             x_scale="linear",
                                             incl_comparison_folder=True,
                                             allow_not_complete_hp_vec=False,
-                                            legend_title=None):
+                                            legend_title=None,
+                                            only_separate_by_color=False,
+                                            separate_legends=False):
     hyperparams_vec = sorted(hyperparams_vec)
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
         dataset_dir = os.path.join(dataset_dir, f"{hyperparams_name}_comparison")
+
     hyperparams_abbreviation_vec = []
     combined_hp_tuning = False
+    n_hyperparams = None
     for hyperparams in hyperparams_vec:
         if isinstance(hyperparams, (list, tuple)):
             combined_hp_tuning=True
-            if len(hyperparams) > 2:
-                raise ValueError("Method not yet implemented for tuning more than two hyperparameters simultaneously")
+            if n_hyperparams is None:
+                n_hyperparams = len(hyperparams)
+            elif n_hyperparams != len(hyperparams):
+                raise ValueError("Method not yet implemented for tuning more than three hyperparameters simultaneously")
+
             if hyperparams_subname is None:
                 hyperparams_abbreviation_vec.append("".join("_" + str(s) for s in hyperparams))
             else:
@@ -36,6 +45,30 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if combined_hp_tuning:
                 raise ValueError("The number of hyperparameters given must be equal for all combinations.")
             hyperparams_abbreviation_vec.append("_" + str(hyperparams))
+            n_hyperparams = 1
+
+    # Create legend_pos variable if not entered as a parameter. Value depends on the bool separate_legends
+    # and number of hyperparameters
+    if legend_pos is None:
+        if separate_legends:
+            legend_pos = ["lower left", "lower center"][:n_hyperparams-1]
+        else:
+            legend_pos = "best"
+
+    # Asserting valid input parameters (not yet complete)
+    if n_hyperparams > 1:
+        if (not only_separate_by_color) and separate_legends:
+            if (not isinstance(legend_pos, (list, tuple))) or len(legend_pos) != (n_hyperparams - 1):
+                raise ValueError(f"When separate_legends=True, then length of legend_pos must be equal to number of wanted legends ({n_hyperparams - 1})")
+            if legend_title is None:
+                legend_title = [None] * (n_hyperparams - 1)
+            elif (not isinstance(legend_title, (list, tuple))) or len(legend_title) != (n_hyperparams - 1):
+                    raise ValueError(f"When separate_legends=True, then legend_title must either be equal to None or a list of length equal to number of wanted legends ({n_hyperparams - 1})")
+    else:
+        if separate_legends:
+            raise ValueError("When number of hyperparameters is equal to 1, then separate_legend must be set equal to False")
+    if n_hyperparams > 3:
+        raise ValueError("Method not yet implemented for tuning more than three hyperparameters simultaneously")
 
     subfolders = [f"{hyperparams_name}{hyperparams}" for hyperparams in hyperparams_abbreviation_vec]
     if allow_not_complete_hp_vec:
@@ -74,19 +107,55 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
     if combined_hp_tuning:
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         axis_names = ["Accuracy", "AUC"]
-        hp1_vec = [hp1 for (hp1, hp2) in hyperparams_vec]
-        hp2_vec = np.array([hp2 for (hp1, hp2) in hyperparams_vec])
-        hp2_vec_unique = np.sort(np.unique(hp2_vec)).tolist()
-        for i, hp2 in enumerate(hp2_vec_unique):
-            curr_color = color_accuracy = next(axes[1]._get_lines.prop_cycler)['color']
-            curr_hp1_vec = np.extract(hp2_vec == hp2, hp1_vec)
-            for j, ax in enumerate(axes):
-                ax.plot(curr_hp1_vec, result.loc[hp2_vec == hp2, axis_names[j]],
-                             label=hp2, color=curr_color, marker="o")
+        hp_main_vec = [hp_comb[0] for hp_comb in hyperparams_vec]
+        hp_sub_combs_vec = [tuple(hp_comb[i] for i in range(len(hp_comb)) if i != 0) for hp_comb in hyperparams_vec]
+        hp_unique_sub_combs_vec = sorted(set(hp_sub_combs_vec))
+
+        if only_separate_by_color:
+            for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
+                curr_color = next(axes[0]._get_lines.prop_cycler)['color']
+                curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
+                curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
+
+                for j, ax in enumerate(axes):
+                    ax.plot(curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                            label=curr_hp_sub_combs, color=curr_color, marker="o")
+        else:
+            hp_sub_vecs = np.swapaxes(hp_sub_combs_vec, 0, 1)
+            color_dict = {hp_sub1 : next(axes[0]._get_lines.prop_cycler)['color']
+                          for hp_sub1 in np.unique(hp_sub_vecs[0,])}
+            linestyles = ['-', '--', ':', '-.']
+            if hp_sub_vecs.shape[1] >= 2:
+                linestyle_dict = {hp_sub2 : linestyle
+                                  for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
+            else:
+                linestyle_dict = {hp_sub2 : linestyles[0] for hp_sub2 in np.unique(hp_sub_vecs[1,])}
+            for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
+                curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
+                curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
+
+                for j, ax in enumerate(axes):
+                    ax.plot(curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                            label=curr_hp_sub_combs,
+                            color=color_dict[curr_hp_sub_combs[0]],
+                            linestyle=linestyle_dict[curr_hp_sub_combs[1]],
+                            marker="o")
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
             ax.set_title(axis_names[i])
-            ax.legend(loc=legend_pos, title=legend_title)
+            if separate_legends and not only_separate_by_color:
+                custom_lines_color = [Line2D([0], [0], color=color)
+                                     for color in color_dict.values()]
+                legend_color = ax.legend(custom_lines_color, color_dict.keys(), title=legend_title[0],
+                                         loc=legend_pos[0])
+                if hp_sub_vecs.shape[1] >= 2:
+                    custom_lines_linestyle = [Line2D([0], [0], color="black", linestyle=linestyle)
+                                             for linestyle in linestyle_dict.values()]
+                    legend_linestyle = ax.legend(custom_lines_linestyle, linestyle_dict.keys(),
+                                                 title=legend_title[1], loc=legend_pos[1])
+                    ax.add_artist(legend_color)
+            else:
+                ax.legend(loc=legend_pos, title=legend_title)
         plt.plot()
 
     else:

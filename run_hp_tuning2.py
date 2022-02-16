@@ -5,7 +5,7 @@ print("Starting hyperparameter tuning")
 import utils
 import importlib
 tabGAN = importlib.import_module("tabGAN")
-from tabGAN import TableGAN
+from tabGAN import TabGAN
 from src import constants as const
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ n_synthetic_datasets_gumbel_temp_comparison = 10
 n_epochs_gumbel_temp = 100
 
 def create_tabGAN_for_gumbel_temp(gumbel_temp):
-    tg_qtr = TableGAN(data_train, n_critic = n_critic, adam_lr = adam_lr, adam_beta1 = adam_beta1,
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, adam_lr = adam_lr, adam_beta1 = adam_beta1,
                       quantile_transformation_int = True, quantile_rand_transformation = True,
                       noise_discrete_unif_max = noise_discrete_unif_max,
                       gumbel_temperature=gumbel_temp)
@@ -66,7 +66,7 @@ n_synthetic_datasets_dim_hidden_comparison = 10
 n_epochs_dim_hidden = 100
 
 def create_tabGAN_for_dim_hidden(dim_hidden):
-    tg_qtr = TableGAN(data_train, n_critic = n_critic, adam_lr = adam_lr, adam_beta1 = adam_beta1,
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, adam_lr = adam_lr, adam_beta1 = adam_beta1,
                       quantile_transformation_int = True, quantile_rand_transformation = True,
                       noise_discrete_unif_max = noise_discrete_unif_max,
                       dim_hidden=dim_hidden)

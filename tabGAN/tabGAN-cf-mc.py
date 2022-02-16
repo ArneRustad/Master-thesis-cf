@@ -3,10 +3,10 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, QuantileTransformer
 from sklearn.compose import ColumnTransformer
 
-from .tabGAN import tableGAN
+from .tabGAN import TabGAN
 from .fast_nondominated_sort import fast_non_dominated_sort
 
-class TabGANcfmc(tableGAN):
+class TabGANcfmc(TabGAN):
     def use_critic_on_data(self, data):
         """
         Internal function for preprocessing data and then fetching it to the critic. Mostly used for debugging purposes.
