@@ -194,3 +194,7 @@ dmypy.json
 # tensorflow log files
 logdir/
 tabGAN_logdir/
+
+# Idun files
+*.out
+.idea/
