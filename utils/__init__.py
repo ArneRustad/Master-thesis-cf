@@ -4,5 +4,5 @@ from . import nmi_matrix
 from . import eval
 from . import compare
 from . import plot
-from . import video
+#from . import video
 from . import timer

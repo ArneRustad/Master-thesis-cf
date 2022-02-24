@@ -5,18 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7d178ecb-5d8a-4d9b-8f21-144ff85c714f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/constants/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/adult.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/adult_test.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult_test.data" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/adult_train.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult_train.data" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/df_adult_edited_test.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/df_adult_edited_test.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/df_adult_edited_train.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/df_adult_edited_train.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Data/df_toy.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/df_toy.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/TabFairGAN_nofair.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TabFairGAN_nofair.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Timers/timer_tgan.pkl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/global_vars.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/constants/directories.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run_hp_idun.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_idun.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hp_task.slurm" beforeDir="false" afterPath="$PROJECT_DIR$/hp_task.slurm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_hp_tuning2.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
