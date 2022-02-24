@@ -6,6 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --job-name="hp_tuning"
 #SBATCH --out=hp_tuning.out
+#SBATCH --error=hp_tuning.%J.err
 #SBATCH --mail-user=<arner97@gmail.com>
 #SBATCH --mail-type=ALL
 

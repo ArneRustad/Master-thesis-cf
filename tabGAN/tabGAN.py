@@ -26,21 +26,42 @@ class TabGAN:
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
     def __init__(self, data, batch_size=500,
-                 dim_hidden=256, dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
+                 n_hidden_layers=2, n_hidden_generator_layers = None, n_hidden_critic_layers = None,
+                 dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
+                 dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
                  quantile_transformation_int=True, quantile_rand_transformation=True,
                  n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05, adam_amsgrad=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
                  noise_discrete_unif_max=0, use_query=True, tf_make_train_step_graph=True):
+        if n_hidden_generator_layers is None:
+            n_hidden_generator_layers = n_hidden_layers
+        if n_hidden_critic_layers is None:
+            n_hidden_critic_layers = n_hidden_layers
+        if dim_hidden_generator is None:
+            dim_hidden_generator = dim_hidden
+        if dim_hidden_critic is None:
+            dim_hidden_critic = dim_hidden
+        if isinstance(dim_hidden_generator, list):
+            assert len(dim_hidden_generator) == n_hidden_generator_layers
+        else:
+            dim_hidden_generator = [dim_hidden_generator] * n_hidden_generator_layers
+        if isinstance(dim_hidden_critic, list):
+            assert len(dim_hidden_critic) == n_hidden_critic_layers
+        else:
+            dim_hidden_critic = [dim_hidden_critic] * n_hidden_critic_layers
         # Initialize variables
         self.data = data
         self.columns = data.columns
         self.n_columns = len(self.columns)
         self.nrow = data.shape[0]
         self.batch_size = batch_size
+        self.n_hidden_generator_layers = n_hidden_generator_layers
+        self.n_hidden_critic_layers = n_hidden_critic_layers
         self.dim_latent = dim_latent
-        self.dim_hidden = dim_hidden
+        self.dim_hidden_generator = dim_hidden_generator
+        self.dim_hidden_critic = dim_hidden_critic
         self.gumbel_temperature = gumbel_temperature
         self.optimizer = optimizer
         self.n_critic = n_critic
@@ -101,10 +122,10 @@ class TabGAN:
         self.oh_encoder = OneHotEncoder(sparse=False)
         self.data_discrete_oh = self.oh_encoder.fit_transform(self.data_discrete)
         self.n_columns_discrete_oh = self.data_discrete_oh.shape[1]
-        # if (self.noise_discrete_unif_max > 0):
-        # noise_discrete = np.random.uniform(low = 0, high = self.noise_discrete_unif_max,
-        #                                   size = self.data_discrete_oh.shape)
-        # self.data_discrete_oh += noise_discrete * np.where(self.data_discrete_oh > 0.5, -1, 1)
+        if (self.noise_discrete_unif_max > 0):
+            noise_discrete = np.random.uniform(low = 0, high = self.noise_discrete_unif_max,
+                                              size = self.data_discrete_oh.shape)
+            self.data_discrete_oh += noise_discrete * np.where(self.data_discrete_oh > 0.5, -1, 1)
 
         self.categories_len = [len(i) for i in self.oh_encoder.categories_]
 
@@ -252,9 +273,10 @@ class TabGAN:
         else:
             combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
             inputs = [input_numeric, input_discrete]
-        hidden1 = Dense(self.dim_hidden, activation=LeakyReLU(), name="hidden1")(combined1)
-        hidden2 = Dense(self.dim_hidden, activation=LeakyReLU(), name="hidden2")(hidden1)
-        output = Dense(1, name="output_critic")(hidden2)
+        hidden = combined1
+        for i in range(self.n_hidden_critic_layers):
+            hidden = Dense(self.dim_hidden_critic[i], activation=LeakyReLU(), name=f"hidden{i+1}")(hidden)
+        output = Dense(1, name="output_critic")(hidden)
         model = Model(inputs=inputs, outputs=output)
         return (model)
 
@@ -271,18 +293,20 @@ class TabGAN:
         else:
             combined1 = latent
             inputs = [latent]
-        hidden1 = Dense(self.dim_hidden, activation=LeakyReLU(), name="Hidden1")(combined1)
-        hidden2 = Dense(self.dim_hidden, activation=LeakyReLU(), name="Hidden2")(hidden1)
+
+        hidden = combined1
+        for i in range(self.n_hidden_generator_layers):
+            hidden = Dense(self.dim_hidden_generator[i], activation=LeakyReLU(), name=f"hidden{i+1}")(hidden)
 
         if (self.n_columns_discrete == 0):
             raise ValueException("TabGAN not yet implemented for zero discrete columns")
         elif (self.n_columns_discrete == 1):
-            output_discrete_i = Dense(self.categories_len[0], name="%s_output" % self.columns_discrete[0])(hidden2)
+            output_discrete_i = Dense(self.categories_len[0], name="%s_output" % self.columns_discrete[0])(hidden)
             output_discrete = Activation("gumbel_softmax", name="Gumbel_softmax")(output_discrete_i)
         else:
             output_discrete_sep = []
             for i in range(self.n_columns_discrete):
-                output_discrete_i = Dense(self.categories_len[i], name="%s_output" % self.columns_discrete[i])(hidden2)
+                output_discrete_i = Dense(self.categories_len[i], name="%s_output" % self.columns_discrete[i])(hidden)
                 output_discrete_sep.append(
                     Activation("gumbel_softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
 
@@ -290,7 +314,7 @@ class TabGAN:
 
         if self.n_columns_num == 0:
             raise ValueException("TabGAN not yet implemented for zero numerical columns")
-        output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden2)
+        output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden)
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return (model)
 
