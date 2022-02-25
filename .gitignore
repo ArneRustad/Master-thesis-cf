@@ -198,3 +198,4 @@ tabGAN_logdir/
 # Idun files
 *.out
 .idea/
+*.err
