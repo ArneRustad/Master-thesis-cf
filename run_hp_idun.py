@@ -12,6 +12,7 @@ opt_lr = 0.0002
 adam_beta1 = 0.5
 noise_discrete_unif_max = 0
 batch_size = 500
+jit_compile_train_step=False
 
 const.dir.storage = lambda: "/cluster/work/arneir"
 print("Storage dir:", const.dir.storage())
@@ -24,7 +25,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 gan_architecture_dim_hidden_vec_partial = [16, 32, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
-gan_architecture_dim_latent_vec_partial = [16, 32, 64, 128, 256, 384, 512, 768, 1024]
+gan_architecture_dim_latent_vec_partial = [16, 32, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
 gan_architecture_n_hidden_layers = [2]
 gan_architecture_vec = [(dim_hidden, dim_latent, n_hidden_layers)
                         for dim_hidden in gan_architecture_dim_hidden_vec_partial
@@ -37,7 +38,8 @@ def create_tabGAN_for_gan_architecture(dim_hidden, dim_latent, n_hidden_layers):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, optimizer="adam", opt_lr = opt_lr,
                     dim_hidden=dim_hidden, dim_latent=dim_latent, n_hidden_layers = n_hidden_layers,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max)
+                    noise_discrete_unif_max = noise_discrete_unif_max,
+                    jit_compile_train_step=jit_compile_train_step)
     return tg_qtr
 
 utils.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
@@ -55,5 +57,6 @@ utils.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     hyperparams_subname = ["dim_hidden", "dim_latent", "n_hidden_layers"],
     add_comparison_folder=True,
     overwrite_dataset=False,
-    progress_bar_subprocess=True
+    progress_bar_subprocess=True,
+    progress_bar_subsubprocess=False
 )
