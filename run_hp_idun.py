@@ -24,7 +24,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 gan_architecture_dim_hidden_vec_partial = [16, 32, 64, 96, 128, 192, 256, 384, 512, 768, 1024]
-gan_architecture_dim_latent_vec_partial = [16, 32, 64, 128, 256]
+gan_architecture_dim_latent_vec_partial = [16, 32, 64, 128, 256, 384, 512, 768, 1024]
 gan_architecture_n_hidden_layers = [2]
 gan_architecture_vec = [(dim_hidden, dim_latent, n_hidden_layers)
                         for dim_hidden in gan_architecture_dim_hidden_vec_partial

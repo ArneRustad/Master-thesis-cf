@@ -34,7 +34,8 @@ class TabGAN:
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
-                 noise_discrete_unif_max=0, use_query=True, tf_make_train_step_graph=True):
+                 noise_discrete_unif_max=0, use_query=True, tf_make_train_step_graph=True,
+                 jit_compile_train_step = False):
         if n_hidden_generator_layers is None:
             n_hidden_generator_layers = n_hidden_layers
         if n_hidden_critic_layers is None:
@@ -89,6 +90,7 @@ class TabGAN:
         self.qtr_lbound_apply = qtr_lbound_apply
         self.use_query = use_query
         self.tf_make_train_step_graph = tf_make_train_step_graph
+        self.jit_compile_train_step = jit_compile_train_step
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -161,7 +163,11 @@ class TabGAN:
         self.start_epoch = 0
 
         if tf_make_train_step_graph:
-            self.train_step = tf.function(self.train_step_func)
+            if tf.__version__ < "2.5":
+                jit_compile_args = {"experimental_compile" : self.jit_compile_train_step}
+            else:
+                jit_compile_args = {"jit_compile" : self.jit_compile_train_step}
+            self.train_step = tf.function(self.train_step_func, **jit_compile_args)
         else:
             self.train_step = self.train_step_func
 

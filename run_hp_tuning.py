@@ -25,7 +25,7 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-noise_discrete_unif_max_vec = np.round(np.arange(0, 0.21, 0.01), 3).tolist() + [0.005]
+noise_discrete_unif_max_vec = np.round(np.arange(0, 0.31, 0.01), 3).tolist() + [0.005]
 n_synthetic_datasets_noise_discrete_unif_max_comparison = 10
 n_epochs_noise_discrete_unif_max = 100
 

@@ -1,4 +1,5 @@
 import time
+import pickle
 
 class Timer:
     def __init__(self):
@@ -7,7 +8,6 @@ class Timer:
 
     def start(self, name):
         """Start a new timer"""
-
         self._start_time[name] = time.perf_counter()
 
     def stop(self, name):
