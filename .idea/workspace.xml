@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7d178ecb-5d8a-4d9b-8f21-144ff85c714f" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/update_hp_dirs.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
@@ -13,6 +14,7 @@
       <change beforePath="$PROJECT_DIR$/LICENSE.txt" beforeDir="false" afterPath="$PROJECT_DIR$/LICENSE.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Untitled.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/Untitled.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/copy_files.py" beforeDir="false" afterPath="$PROJECT_DIR$/copy_files.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/adult.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/adult_test.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult_test.data" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/adult_train.data" beforeDir="false" afterPath="$PROJECT_DIR$/data/adult_train.data" afterDir="false" />
@@ -43,8 +45,6 @@
       <change beforePath="$PROJECT_DIR$/images/plot_discriminator_adult.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/plot_discriminator_adult.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/plot_generator_adult.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/plot_generator_adult.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/prediction_func_for_cf_testing.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/prediction_func_for_cf_testing.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images/predictive_performance_against_batch_size_300_epochs.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/predictive_performance_against_batch_size_300_epochs.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images/predictive_performance_against_noise_discrete_unif_max.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/predictive_performance_against_noise_discrete_unif_max.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats_plot2D.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats_plot2D.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats_train_loss.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats_train_loss.svg" afterDir="false" />
@@ -118,6 +118,14 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitSEFilterConfiguration">
+    <file-type-list>
+      <filtered-out-file-type name="LOCAL_BRANCH" />
+      <filtered-out-file-type name="REMOTE_BRANCH" />
+      <filtered-out-file-type name="TAG" />
+      <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
+    </file-type-list>
+  </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -135,6 +143,8 @@
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="T:\Master-thesis-cf" />
+      <recent name="T:\Master-thesis-cf\utils" />
       <recent name="T:\Master-thesis-cf\src\constants" />
       <recent name="T:\Master-thesis-cf\src\constants\directories" />
       <recent name="T:\Master-thesis-cf\src" />
