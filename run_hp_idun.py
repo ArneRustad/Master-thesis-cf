@@ -25,8 +25,8 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-noise_discrete_unif_max_vec_partial = np.arange(0, 0.21, 0.01)
-gumbel_temp_vec_partial = [0.1, 0.5, 1]
+noise_discrete_unif_max_vec_partial = np.arange(0, 0.21, 0.01) + [0.005, 0.015, 0.025]
+gumbel_temp_vec_partial = [0.1, 0.3, 0.5, 0.7, 1]
 noise_and_gumbel_temp_vec = [(noise_discrete_unif_max, gumbel_temp)
                              for noise_discrete_unif_max in noise_discrete_unif_max_vec_partial
                              for gumbel_temp in gumbel_temp_vec_partial]
