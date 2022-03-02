@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7d178ecb-5d8a-4d9b-8f21-144ff85c714f" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/tabGAN/tabGAN_v1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
@@ -45,7 +46,6 @@
       <change beforePath="$PROJECT_DIR$/images/plot_discriminator_adult.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/plot_discriminator_adult.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/plot_generator_adult.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/plot_generator_adult.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/prediction_func_for_cf_testing.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/prediction_func_for_cf_testing.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images/predictive_performance_against_batch_size_300_epochs.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/predictive_performance_against_batch_size_300_epochs.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats_plot2D.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats_plot2D.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/images/syn2D_3cats_train_loss.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/syn2D_3cats_train_loss.svg" afterDir="false" />
@@ -54,6 +54,7 @@
       <change beforePath="$PROJECT_DIR$/run_hp_tuning.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_hp_tuning.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/TGAN_generate_synthetic_datasets.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/TGAN_generate_synthetic_datasets.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/Untitled.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/Untitled.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/Untitled1.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/Untitled1.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/compare_counterfactuals_on_adult_dataset.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/compare_counterfactuals_on_adult_dataset.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/compare_tabGAN_speed-tf2.8.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/compare_tabGAN_speed-tf2.8.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/compare_tabGAN_speed.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/compare_tabGAN_speed.ipynb" afterDir="false" />
@@ -72,7 +73,6 @@
       <change beforePath="$PROJECT_DIR$/src/constants/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/constants/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/constants/directories.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/constants/directories.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/imports.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/src/imports.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tabGAN/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tabGAN/fast_nondominated_sort.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/fast_nondominated_sort.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN-cf-mc.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN-cf-mc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN.py" afterDir="false" />
@@ -142,9 +142,12 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/tabGAN" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="T:\Master-thesis-cf\tabGAN" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="T:\Master-thesis-cf" />
       <recent name="T:\Master-thesis-cf\utils" />

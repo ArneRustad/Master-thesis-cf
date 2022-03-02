@@ -33,7 +33,7 @@ class TabGAN2(TabGAN):
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
                  noise_discrete_unif_max=0, tf_make_train_step_graph=True,
-                 jit_compile_train_step=False):
+                 jit_compile_train_step=False, use_tf_data=True):
         super().__init__(data, batch_size=500,
                          n_hidden_layers=n_hidden_layers, n_hidden_generator_layers=n_hidden_generator_layers,
                          n_hidden_critic_layers=n_hidden_critic_layers,
@@ -47,9 +47,4 @@ class TabGAN2(TabGAN):
                          ckpt_dir=ckpt_dir, ckpt_every=ckpt_every, ckpt_max_to_keep=ckpt_max_to_keep, ckpt_name=ckpt_name,
                          noise_discrete_unif_max=noise_discrete_unif_max, use_query=False, tf_make_train_step_graph=tf_make_train_step_graph,
                          jit_compile_train_step=jit_compile_train_step)
-
-        self.data_processed = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(self.data_num),
-                                                   tf.data.Dataset.from_tensor_slices(self.data_discrete_oh)
-                                                   )
-                                                  )
 
