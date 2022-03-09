@@ -1,6 +1,6 @@
 print("Starting hyperparameter tuning on Idun")
 import os
-import utils.hp_tuning.hp_gen
+import helpers.hp_tuning.hp_gen
 from tabGAN import TabGAN
 from src import constants as const
 import numpy as np

@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7d178ecb-5d8a-4d9b-8f21-144ff85c714f" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/tabGAN/tabGAN_v1.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/helpers/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Master-thesis-cf.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
@@ -52,6 +52,7 @@
       <change beforePath="$PROJECT_DIR$/images/total_train_time_plot.svg" beforeDir="false" afterPath="$PROJECT_DIR$/images/total_train_time_plot.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/run_hp_idun.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_hp_idun.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/run_hp_tuning.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_hp_tuning.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/.~Untitled1.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/.~Untitled1.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/TGAN_generate_synthetic_datasets.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/TGAN_generate_synthetic_datasets.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/Untitled.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/Untitled.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/Untitled1.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/Untitled1.ipynb" afterDir="false" />
@@ -77,27 +78,28 @@
       <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN-cf-mc.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN-cf-mc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN2.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tabGAN/tabGAN_v1.py" beforeDir="false" afterPath="$PROJECT_DIR$/tabGAN/tabGAN_v1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test_idun.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_idun.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/update_hp_dirs.py" beforeDir="false" afterPath="$PROJECT_DIR$/update_hp_dirs.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/compare/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/compare/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/compare/compare_evolution_marginal_hists.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/compare/compare_evolution_marginal_hists.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/compare/compare_marginal_hists.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/compare/compare_marginal_hists.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/eval/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/eval/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/eval/eval_xgboost_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/eval/eval_xgboost_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/eval/evaluate_tabular_GAN.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/eval/evaluate_tabular_GAN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/epoch_eval.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen_fast.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen_fast.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/hp_eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/hp_eval.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/hp_gen.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/hp_tuning/hp_gen.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/nmi_matrix/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/compare_nmi_matrices.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/nmi_matrix/compare_nmi_matrices.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/compute_nmi_matrix.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/nmi_matrix/compute_nmi_matrix.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/compare/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/compare/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/compare/compare_evolution_marginal_hists.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/compare/compare_evolution_marginal_hists.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/compare/compare_marginal_hists.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/compare/compare_marginal_hists.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/eval/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/eval/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/eval/eval_xgboost_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/eval/eval_xgboost_model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/eval/evaluate_tabular_GAN.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/eval/evaluate_tabular_GAN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/epoch_eval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/epoch_gen.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/epoch_gen_fast.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/epoch_gen_fast.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/hp_eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/hp_eval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/hp_tuning/hp_gen.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/hp_tuning/hp_gen.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/nmi_matrix/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/compare_nmi_matrices.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/nmi_matrix/compare_nmi_matrices.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/nmi_matrix/compute_nmi_matrix.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/nmi_matrix/compute_nmi_matrix.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/plot/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plot/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/plot/helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/plot/helpers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/tabgan_gen_multiple_datasets.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/tabgan_gen_multiple_datasets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/tabgan_gen_multiple_datasets.py" beforeDir="false" afterPath="$PROJECT_DIR$/helpers/tabgan_gen_multiple_datasets.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/tictoc/tictoc.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/tictoc/tictoc.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/timer/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/timer/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/timer/timer.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/timer/timer.py" afterDir="false" />
@@ -142,18 +144,18 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/tabGAN" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/helpers" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="T:\Master-thesis-cf\tabGAN" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="T:\Master-thesis-cf\helpers" />
       <recent name="T:\Master-thesis-cf" />
       <recent name="T:\Master-thesis-cf\utils" />
       <recent name="T:\Master-thesis-cf\src\constants" />
       <recent name="T:\Master-thesis-cf\src\constants\directories" />
-      <recent name="T:\Master-thesis-cf\src" />
     </key>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />

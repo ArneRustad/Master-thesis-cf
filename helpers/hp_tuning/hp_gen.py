@@ -1,6 +1,6 @@
 import os
 from tqdm.auto import tqdm
-from ..tabgan_gen_multiple_datasets import generate_multiple_datasets
+from helpers.tabgan_gen_multiple_datasets import generate_multiple_datasets
 import pickle
 
 def generate_multiple_datasets_for_multiple_hyperparameters(create_tabGAN_func, hyperparams_vec, n_epochs, dataset_dir,

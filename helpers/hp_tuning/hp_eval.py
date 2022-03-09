@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
-from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
+from helpers.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 import pandas as pd
 import numpy as np
 from matplotlib.lines import Line2D
@@ -19,7 +19,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             only_separate_by_color=False,
                                             separate_legends=False,
                                             drop_na=False,
-                                            report_na=None):
+                                            report_na=None,
+                                            result_table_split_hps=False):
     if report_na is None:
         report_na=drop_na
 
@@ -180,6 +181,14 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             else:
                 ax.legend(loc=legend_pos, title=legend_title)
         plt.plot()
+
+        if result_table_split_hps and not hyperparams_subname is None:
+            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
+            result_split_hps = pd.concat((
+                result_split_hps,
+                result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
+            ), axis=1)
+            return result_split_hps
     else:
         fig, ax = plt.subplots(1, figsize=figsize)
         ax.set_xscale(x_scale)
@@ -202,4 +211,12 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if not save_dir is None:
                 save_path = os.path.join(save_dir, save_path)
             fig.savefig(save_path)
+
+        if result_table_split_hps and hyperparams_name is not None:
+            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_name)
+            result_split_hps = pd.concat((
+                result_split_hps,
+                result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
+            ), axis=1)
+            return result_split_hps
     return result

@@ -2,7 +2,7 @@ import pathlib
 import os
 print("Starting hyperparameter tuning")
 
-import utils
+import helpers
 import importlib
 tabGAN = importlib.import_module("tabGAN")
 from tabGAN import TabGAN
@@ -35,7 +35,7 @@ def create_tabGAN_for_noise_discrete_unif_max(noise_discrete_unif_max):
                     noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr
 
-utils.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     create_tabGAN_func=create_tabGAN_for_noise_discrete_unif_max,
     hyperparams_vec=noise_discrete_unif_max_vec,
     n_epochs=n_epochs_noise_discrete_unif_max,
@@ -63,7 +63,7 @@ def create_tabGAN_for_batch_size(batch_size):
                     batch_size=batch_size)
     return tg_qtr
 
-utils.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     create_tabGAN_func=create_tabGAN_for_batch_size,
     hyperparams_vec=batch_size_vec,
     n_epochs=n_epochs_batch_size,

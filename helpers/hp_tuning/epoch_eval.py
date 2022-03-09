@@ -1,7 +1,7 @@
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import os
-from utils.eval.eval_xgboost_model import fit_and_evaluate_xgboost
+from helpers.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 import pandas as pd
 import numpy as np
 

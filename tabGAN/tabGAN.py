@@ -10,7 +10,8 @@ from sklearn.compose import ColumnTransformer
 
 from math import ceil
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Flatten, concatenate, LeakyReLU, ReLU, Embedding, Activation
+from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU, Embedding,
+                                     Activation, Dropout)
 
 from IPython.display import clear_output, display, Image, Video
 import matplotlib.pyplot as plt
@@ -30,8 +31,11 @@ class TabGAN:
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
                  quantile_transformation_int=True, quantile_rand_transformation=True,
-                 n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05, adam_amsgrad=False,
-                 optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
+                 n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05,
+                 leaky_relu_alpha=0.3, add_dropout_critic=False, add_dropout_generator=False,
+                 dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
+                 optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
+                 adam_amsgrad=False, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
                  noise_discrete_unif_max=0, use_query=False,
@@ -82,6 +86,11 @@ class TabGAN:
             jit_compile_generate_latent = jit_compile
         if jit_compile_em_distance is None:
             jit_compile_em_distance = jit_compile
+
+        if dropout_rate_critic is None:
+            dropout_rate_critic = dropout_rate
+        if dropout_rate_generator is None:
+            dropout_rate_generator = dropout_rate
         # Initialize variables
         self.data = data
         self.columns = data.columns
@@ -118,6 +127,11 @@ class TabGAN:
         self.initialized_gan = False
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
+        self.leaky_relu_alpha = leaky_relu_alpha
+        self.add_dropout_critic = add_dropout_critic
+        self.add_dropout_generator = add_dropout_generator
+        self.dropout_rate_critic = dropout_rate_critic
+        self.dropout_rate_generator = dropout_rate_generator
         self.use_query = use_query
         self.tf_data_use = tf_data_use
         self.tf_data_shuffle = tf_data_shuffle
@@ -203,9 +217,11 @@ class TabGAN:
                 self.data_processed = self.data_processed.shuffle(buffer_size=self.data.shape[0])
             self.data_processed = self.data_processed.repeat().batch(self.batch_size)
             if self.tf_data_prefetch:
+                #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
                 self.data_processed = self.data_processed.prefetch(tf.data.AUTOTUNE)
             if self.tf_data_cache:
                 self.data_processed = self.data_processed.cache()
+            #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
             self.data_processed_iter = iter(self.data_processed)
 
             self.data_num_scaled_cast = None
@@ -374,7 +390,10 @@ class TabGAN:
             inputs = [input_numeric, input_discrete]
         hidden = combined1
         for i in range(self.n_hidden_critic_layers):
-            hidden = Dense(self.dim_hidden_critic[i], activation=LeakyReLU(), name=f"hidden{i+1}")(hidden)
+            hidden = Dense(self.dim_hidden_critic[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
+                           name=f"hidden{i+1}")(hidden)
+        if self.add_dropout_critic:
+            hidden = Dropout(rate=self.dropout_rate_critic)(hidden)
         output = Dense(1, name="output_critic")(hidden)
         model = Model(inputs=inputs, outputs=output)
         return (model)
@@ -395,7 +414,10 @@ class TabGAN:
 
         hidden = combined1
         for i in range(self.n_hidden_generator_layers):
-            hidden = Dense(self.dim_hidden_generator[i], activation=LeakyReLU(), name=f"hidden{i+1}")(hidden)
+            hidden = Dense(self.dim_hidden_generator[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
+                           name=f"hidden{i+1}")(hidden)
+        if self.add_dropout_generator:
+            hidden = Dropout(rate=self.dropout_rate_generator)(hidden)
 
         if (self.n_columns_discrete == 0):
             raise ValueException("TabGAN not yet implemented for zero discrete columns")
