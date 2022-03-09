@@ -34,8 +34,13 @@ class TabGAN:
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
-                 noise_discrete_unif_max=0, use_query=True, tf_make_train_step_graph=True,
-                 jit_compile_train_step=False):
+                 noise_discrete_unif_max=0, use_query=False,
+                 tf_data_use=True, tf_data_shuffle=True, tf_data_prefetch=True, tf_data_cache=False,
+                 tf_make_graph=True, tf_make_critic_step_graph=None, tf_make_gen_step_graph=None,
+                 tf_make_train_step_graph=None, tf_make_numpy_data_step_graph=None,
+                 tf_make_em_distance_graph=None, tf_make_generate_latent_graph=None,
+                 jit_compile=False, jit_compile_critic_step=None, jit_compile_gen_step=None,
+                 jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None):
         # Create variable defaults if needed
         if n_hidden_generator_layers is None:
             n_hidden_generator_layers = n_hidden_layers
@@ -53,6 +58,30 @@ class TabGAN:
             assert len(dim_hidden_critic) == n_hidden_critic_layers
         else:
             dim_hidden_critic = [dim_hidden_critic] * n_hidden_critic_layers
+
+        if tf_make_critic_step_graph is None:
+            tf_make_critic_step_graph = tf_make_graph
+        if tf_make_gen_step_graph is None:
+            tf_make_gen_step_graph = tf_make_graph
+        if tf_make_train_step_graph is None:
+            tf_make_train_step_graph = tf_make_graph
+        if tf_make_numpy_data_step_graph is None:
+            tf_make_numpy_data_step_graph = tf_make_graph
+        if tf_make_em_distance_graph is None:
+            tf_make_em_distance_graph = tf_make_graph
+        if tf_make_generate_latent_graph is None:
+            tf_make_generate_latent_graph = tf_make_graph
+        
+        if jit_compile_critic_step is None:
+            jit_compile_critic_step = jit_compile
+        if jit_compile_gen_step is None:
+            jit_compile_gen_step = jit_compile
+        if jit_compile_numpy_data_step is None:
+            jit_compile_numpy_data_step = jit_compile
+        if jit_compile_generate_latent is None:
+            jit_compile_generate_latent = jit_compile
+        if jit_compile_em_distance is None:
+            jit_compile_em_distance = jit_compile
         # Initialize variables
         self.data = data
         self.columns = data.columns
@@ -90,8 +119,24 @@ class TabGAN:
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
         self.use_query = use_query
+        self.tf_data_use = tf_data_use
+        self.tf_data_shuffle = tf_data_shuffle
+        self.tf_data_prefetch = tf_data_prefetch
+        self.tf_data_cache = tf_data_cache
+        self.tf_make_graph = tf_make_graph
+        self.tf_make_critic_step_graph = tf_make_critic_step_graph
+        self.tf_make_gen_step_graph = tf_make_gen_step_graph
         self.tf_make_train_step_graph = tf_make_train_step_graph
-        self.jit_compile_train_step = jit_compile_train_step
+        self.tf_make_numpy_data_step_graph = tf_make_numpy_data_step_graph
+        self.tf_make_em_distance_graph = tf_make_em_distance_graph
+        self.tf_make_generate_latent_graph = tf_make_generate_latent_graph
+        self.jit_compile = jit_compile
+        self.jit_compile_critic_step = jit_compile_critic_step
+        self.jit_compile_gen_step = jit_compile_gen_step
+        self.jit_compile_numpy_data_step = jit_compile_numpy_data_step
+        self.jit_compile_generate_latent = jit_compile_generate_latent
+        self.jit_compile_em_distance = jit_compile_em_distance
+        self.jit_compile_arg_func = None # Will be initialized later depending on tensorflow version being less than 2.5 or above
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -135,13 +180,46 @@ class TabGAN:
         # Create Gumbel-activation function
         tf.keras.utils.get_custom_objects().update({'gumbel_softmax': Activation(self.gumbel_softmax)})
 
+        # To accomodate for that jit_compile was referred to as experimental compile in tensorflow versions before 2.5
+        if tf.__version__ < "2.5":
+            self.jit_compile_arg_func = lambda bool: {"experimental_compile": bool}
+        else:
+            self.jit_compile_arg_func = lambda bool: {"jit_compile": bool}
+
         # Create generator and critic objects as well as critic and generator optimizer
         self.initialize_gan()
         # If needed create checkpoint manager
         if (self.ckpt_dir != None):
             self.initialize_cptk()
 
-    def initialize_gan(self, tf_make_train_step_graph=True):
+        # Create either tf dataset or numpy dataset in float32
+        if self.tf_data_use:
+            self.data_processed = tf.data.Dataset.zip(
+                (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num, dtype=tf.float32)),
+                 tf.data.Dataset.from_tensor_slices(tf.cast(self.data_discrete_oh, dtype=tf.float32))
+                 )
+            )
+            if self.tf_data_shuffle:
+                self.data_processed = self.data_processed.shuffle(buffer_size=self.data.shape[0])
+            self.data_processed = self.data_processed.repeat().batch(self.batch_size)
+            if self.tf_data_prefetch:
+                self.data_processed = self.data_processed.prefetch(tf.data.AUTOTUNE)
+            if self.tf_data_cache:
+                self.data_processed = self.data_processed.cache()
+            self.data_processed_iter = iter(self.data_processed)
+
+            self.data_num_scaled_cast = None
+            self.data_discrete_oh_cast = None
+        else:
+            self.data_num_scaled_cast = self.data_num_scaled.astype(np.float32)
+            self.data_discrete_oh_cast = self.data_discrete_oh.astype(np.float32)
+
+            self.data_processed = None
+            self.data_processed_iter = None
+
+
+
+    def initialize_gan(self, tf_make_graph=True):
         """
         Internal function used for initializing the GAN architecture
         """
@@ -162,13 +240,27 @@ class TabGAN:
         else:
             raise ValueError("Optimizer name not recognized. Currently only implemented optimizers: adam, sgd and rmsprop")
         self.start_epoch = 0
-
-        if tf_make_train_step_graph:
-            if tf.__version__ < "2.5":
-                jit_compile_args = {"experimental_compile" : self.jit_compile_train_step}
-            else:
-                jit_compile_args = {"jit_compile" : self.jit_compile_train_step}
-            self.train_step = tf.function(self.train_step_func, **jit_compile_args)
+        
+        if self.tf_make_generate_latent_graph:
+            self.generate_latent = tf.function(self.generate_latent_func, **self.jit_compile_arg_func(self.jit_compile_generate_latent))
+        if self.tf_make_numpy_data_step_graph and not self.tf_data_use:
+            self.get_numpy_data_batch_real = tf.function(self.get_numpy_data_batch_real_func, **self.jit_compile_arg_func(self.jit_compile_numpy_data_step))
+        else:
+            self.get_numpy_data_batch_real = self.get_numpy_data_batch_real_func
+        if self.tf_make_critic_step_graph:
+            self.train_step_critic = tf.function(self.train_step_critic_func, **self.jit_compile_arg_func(self.jit_compile_critic_step))
+        else:
+            self.train_step_critic = self.train_step_critic_func
+        if self.tf_make_em_distance_graph:
+            self.compute_em_distance = tf.function(self.compute_em_distance_func, **self.jit_compile_arg_func(self.jit_compile_em_distance))
+        else:
+            self.compute_em_distance = self.compute_em_distance_func
+        if self.tf_make_gen_step_graph:
+            self.train_step_generator = tf.function(self.train_step_generator_func, **self.jit_compile_arg_func(self.jit_compile_gen_step))
+        else:
+            self.train_step_generator = self.train_step_generator_func
+        if self.tf_make_train_step_graph:
+            self.train_step = tf.function(self.train_step_func)
         else:
             self.train_step = self.train_step_func
 
@@ -190,7 +282,7 @@ class TabGAN:
             for integer in quantiles_unique_integer:
                 curr_references = references[np.isclose(quantiles_curr, integer)]
                 n_curr_references = curr_references.shape[0]
-                if (n_curr_references >= self.qtr_lbound_apply * self.n_quantiles_int):
+                if n_curr_references >= self.qtr_lbound_apply * self.n_quantiles_int:
                     mask = self.data_num[self.columns_int[i]] == integer
                     n_obs_curr = np.sum(mask)
                     curr_reference_range = curr_references[-1] - curr_references[0]
@@ -215,14 +307,14 @@ class TabGAN:
         Internal function used for inverting the data transformation done in preprocessing
         """
         data_discrete = pd.DataFrame(self.oh_encoder.inverse_transform(data_discrete_oh), columns=self.columns_discrete)
-        if (self.quantile_transformation_int):
-            if (len(self.columns_float) > 0):
+        if self.quantile_transformation_int:
+            if len(self.columns_float) > 0:
                 data_float = pd.DataFrame(self.scaler_num.named_transformers_["float"].inverse_transform(
                     data_num_scaled[:, np.logical_not(self.columns_num_int_mask)]), columns=self.columns_float)
             else:
                 data_float = None
 
-            if (len(self.columns_int) > 0):
+            if len(self.columns_int) > 0:
                 data_int_scaled = pd.DataFrame(data_num_scaled[:, self.columns_num_int_mask], columns=self.columns_int)
                 data_int = pd.DataFrame(self.scaler_num.named_transformers_["int"].inverse_transform(data_int_scaled),
                     columns=self.columns_int)
@@ -237,20 +329,20 @@ class TabGAN:
         """
         Currently a dummy function for generating queries. Query functionality is not yet implemented
         """
-        return (tf.zeros([n, self.n_columns_discrete_oh]))
+        return tf.zeros([n, self.n_columns_discrete_oh])
 
-    def generate_data(self, n=None):
+    def generate_dataset(self, n=None):
         """
         Function for generating data using the data synthesizer
         """
-        if (n == None):
+        if n == None:
             n = self.nrow
         noise = self.generate_latent(n)
         queries = self.generate_queries(n)
         gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict([noise, queries])
-        return (self.inv_data_transform(gen_data_num_scaled, gen_data_discrete_oh))
+        return self.inv_data_transform(gen_data_num_scaled, gen_data_discrete_oh)
 
-    def generate_data_scaled(self, n=None):
+    def generate_dataset_scaled(self, n=None):
         """
         Function for generating data directly from the generator without inverting any transformations. Mostly used for debugging.
         """
@@ -325,81 +417,104 @@ class TabGAN:
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return (model)
 
-    @tf.function
-    def generate_latent(self, n):
+    def generate_latent_func(self, n):
         """
         Internal function for generating latent noise as input for generator
         """
-        return (tf.random.normal([n, self.dim_latent]))
+        return tf.random.normal([n, self.dim_latent])
 
     def gumbel_softmax(self, logits):
         """
         Internal function for used in creating of gumbel softmax layers
         """
-        return (tfd.RelaxedOneHotCategorical(temperature=self.gumbel_temperature, logits=logits).sample())
+        return tfd.RelaxedOneHotCategorical(temperature=self.gumbel_temperature, logits=logits).sample()
 
     def train_step_func(self, n_batch):
         """
         Internal function for running training for a single batch.
         """
-        queries_batch = tf.zeros([n_batch, self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
-
         for i in range(self.n_critic):
-            noise = self.generate_latent(n_batch)
-            gen_data_num, gen_data_discrete = self.generator([noise, queries_batch], training=True)
+            #data_batch_real = self.get_data_batch_real()
+            if self.tf_data_use:
+                data_batch_real = next(self.data_processed_iter)
+            else:
+                # ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
+                # data_batch_real = [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
+                data_batch_real = self.get_numpy_data_batch_real(n_batch)
+            self.train_step_critic(data_batch_real, n_batch)
 
-            ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
-            data_num_batch = self.data_num_scaled[ix]
-            data_discrete_oh_batch = self.data_discrete_oh[ix]
-            with tf.GradientTape() as discr_tape:
-                output_discr_real = self.critic([data_num_batch, data_discrete_oh_batch, queries_batch],
-                                                       training=True)
-                output_discr_fake = self.critic([gen_data_num, gen_data_discrete, queries_batch], training=True)
-                loss_discr = - tf.reduce_mean(output_discr_real) + tf.reduce_mean(output_discr_fake)
+        em_distance = self.compute_em_distance()
 
-                epsilon = tf.random.uniform([n_batch, 1])
-                combined_data_num = epsilon * gen_data_num + (1 - epsilon) * data_num_batch
-                combined_data_discrete = epsilon * gen_data_discrete + (1 - epsilon) * data_discrete_oh_batch
+        loss_gen = self.train_step_generator(n_batch)
 
-                with tf.GradientTape() as discr_tape_comb:
-                    discr_tape_comb.watch(combined_data_num)
-                    discr_tape_comb.watch(combined_data_discrete)
-                    discr_tape_comb.watch(queries_batch)
-                    loss_discr_combined = self.critic([combined_data_num, combined_data_discrete, queries_batch],
-                                                             training=True)
-                combined_gradients = discr_tape_comb.gradient(loss_discr_combined,
-                                                              [combined_data_num, combined_data_discrete,
-                                                               queries_batch])
-                combined_gradients = tf.concat(combined_gradients, axis=1)
+        return em_distance, loss_gen
 
-                loss_discr_gradients = self.wgan_lambda * tf.reduce_mean((tf.norm(combined_gradients, axis=1) - 1) ** 2)
-                loss_discr_combined = loss_discr + loss_discr_gradients
-            gradients_of_critic = discr_tape.gradient(loss_discr_combined,
-                                                             self.critic.trainable_variables)
-            self.critic_optimizer.apply_gradients(
-                zip(gradients_of_critic, self.critic.trainable_variables))
+    def train_step_critic(self, data_batch_real, n_batch):
+        #noise = self.generate_latent(n_batch)
+        #data_batch_gen = self.generator([noise], training=True)
+        return None
 
-        queries = tf.zeros([self.data.shape[0], self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
+    def train_step_critic_func(self, data_batch_real, n_batch):
+        noise = self.generate_latent(n_batch)
+        data_batch_gen = self.generator([noise], training=True)
+
+        with tf.GradientTape() as discr_tape:
+            output_discr_real = self.critic(data_batch_real, training=True)
+            output_discr_fake = self.critic(data_batch_gen, training=True)
+            loss_discr = - tf.reduce_mean(output_discr_real) + tf.reduce_mean(output_discr_fake)
+
+            epsilon = tf.random.uniform([n_batch, 1])
+            combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
+            combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
+
+            with tf.GradientTape() as discr_tape_comb:
+                discr_tape_comb.watch(combined_data_num)
+                discr_tape_comb.watch(combined_data_discrete)
+                loss_discr_combined = self.critic([combined_data_num, combined_data_discrete], training=True)
+            combined_gradients = discr_tape_comb.gradient(loss_discr_combined,
+                                                          [combined_data_num, combined_data_discrete])
+            combined_gradients = tf.concat(combined_gradients, axis=1)
+
+            loss_discr_gradients = self.wgan_lambda * tf.reduce_mean((tf.norm(combined_gradients, axis=1) - 1) ** 2)
+            loss_discr_combined = loss_discr + loss_discr_gradients
+        gradients_of_critic = discr_tape.gradient(loss_discr_combined,
+                                                  self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(
+            zip(gradients_of_critic, self.critic.trainable_variables))
+
+        return None
+
+    def compute_em_distance_func(self):
         noise = self.generate_latent(self.data.shape[0])
-        gen_data_num, gen_data_discrete = self.generator([noise, queries], training=True)
-        output_discr_real = self.critic([self.data_num_scaled, self.data_discrete_oh, queries], training=True)
-        output_discr_fake = self.critic([gen_data_num, gen_data_discrete, queries], training=True)
+        gen_data_num, gen_data_discrete = self.generator([noise], training=True)
+        output_discr_real = self.critic([self.data_num_scaled, self.data_discrete_oh], training=True)
+        output_discr_fake = self.critic([gen_data_num, gen_data_discrete], training=True)
         em_distance = tf.reduce_mean(output_discr_real) - tf.reduce_mean(output_discr_fake)
+        return em_distance
 
+    def train_step_generator_func(self, n_batch):
         noise = self.generate_latent(n_batch)
         with tf.GradientTape() as gen_tape:
-            gen_data_num, gen_data_discrete = self.generator([noise, queries_batch], training=True)
+            gen_data_num, gen_data_discrete = self.generator([noise], training=True)
             loss_gen = - tf.reduce_mean(
-                self.critic([gen_data_num, gen_data_discrete, queries_batch], training=True))
+                self.critic([gen_data_num, gen_data_discrete], training=True))
 
         gradients_of_generator = gen_tape.gradient(loss_gen, self.generator.trainable_variables)
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
 
-        return em_distance, loss_gen
+        return loss_gen
+
+    def get_data_batch_real(self):
+        """Currently not in use"""
+        return next(self.data_processed_iter)
+
+    def get_numpy_data_batch_real_func(self, n_batch):
+        ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
+        return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
 
     def train(self, n_epochs, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
               plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
-              plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_train_step_graph=None,
+              plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_graph=None,
               save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
               plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
               plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
@@ -408,8 +523,8 @@ class TabGAN:
         """
         Function for training the data synthesizer (training the GAN architecture).
         """
-        if tf_make_train_step_graph is None:
-            tf_make_train_step_graph=self.tf_make_train_step_graph
+        if tf_make_graph is None:
+            tf_make_graph = self.tf_make_graph
             self.initialized_gan=False
 
         if plot_loss and plot2D_image:
@@ -433,7 +548,7 @@ class TabGAN:
                 ckpt_every = self.ckpt_every
 
         if restart_training or not self.initialized_gan:
-            self.initialize_gan(tf_make_train_step_graph=tf_make_train_step_graph)
+            self.initialize_gan(tf_make_graph=tf_make_graph)
 
         if restart_training and not self.ckpt_dir is None:
             shutil.rmtree(self.ckpt_dir)
@@ -504,7 +619,7 @@ class TabGAN:
 
                     pbar.update(1)
 
-                if self.ckpt_dir != None:
+                if not self.ckpt_dir is None:
                     if epoch % ckpt_every == 0 or epoch == n_epochs:
                         if os.path.exists(os.path.join(self.ckpt_dir, "checkpoint")):
                             os.remove(os.path.join(self.ckpt_dir, "checkpoint"))

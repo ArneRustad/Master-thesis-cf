@@ -133,7 +133,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 labels_vec = [labels[0] for labels in hp_unique_sub_combs_vec]
             else:
                 labels_vec = hp_unique_sub_combs_vec
-            
+
             for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
                 curr_color = next(axes[0]._get_lines.prop_cycler)['color']
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]

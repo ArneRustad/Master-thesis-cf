@@ -10,7 +10,7 @@ parser.add_argument("--forwards", help="Bool - whether to copy files from folder
                     default=True)
 parser.add_argument("--backwards", help="Bool - whether to copy files from folder on Markov to Idun",
                     default=False)
-parser.add_argument("--verbal", help="How verbal the script should be. Enter 0 for silent.", type=int,
+parser.add_argument("--verbal", "-v", help="How verbal the script should be. Enter 0 for silent.", type=int,
                     default=1)
 parser.add_argument("--local", help="Backup Markov on local drive", type=bool, default=False)
 parser.add_argument("--redo", help="If activated, redo copying of all files even if they already exist at destination directory",
