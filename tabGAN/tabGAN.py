@@ -354,8 +354,8 @@ class TabGAN:
         if n is None:
             n = self.nrow
         noise = self.generate_latent(n)
-        queries = self.generate_queries(n)
-        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict([noise, queries])
+        #queries = self.generate_queries(n)
+        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(noise)
         return self.inv_data_transform(gen_data_num_scaled, gen_data_discrete_oh)
 
     def generate_dataset_scaled(self, n=None):
@@ -365,8 +365,8 @@ class TabGAN:
         if (n == None):
             n = self.nrow
         noise = self.generate_latent(n)
-        queries = self.generate_queries(n)
-        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict([noise, queries])
+        #queries = self.generate_queries(n)
+        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(noise)
         columns_discrete_oh = []
         for i, col in enumerate(self.columns_discrete):
             for category in self.oh_encoder.categories_[i]:

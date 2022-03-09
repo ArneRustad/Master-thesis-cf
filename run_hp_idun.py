@@ -25,34 +25,58 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-noise_discrete_unif_max_vec_partial = np.arange(0, 0.21, 0.01).tolist() + [0.001, 0.003, 0.005, 0.007, 0.015, 0.025]
-gumbel_temp_vec_partial = [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1]
-noise_and_gumbel_temp_vec = [(noise_discrete_unif_max, gumbel_temp)
-                             for noise_discrete_unif_max in noise_discrete_unif_max_vec_partial
-                             for gumbel_temp in gumbel_temp_vec_partial]
-n_synthetic_datasets_noise_and_gumbel_temp_comparison = 10
-n_epochs_noise_and_gumbel_temp = 100
+leaky_relu_alpha_vec = np.round(np.arange(0, 1.01, 0.05), 2).tolist()
+n_synthetic_datasets_leaky_relu_alpha_comparison = 10
+n_epochs_leaky_relu_alpha = 100
 
-def create_tabGAN_for_noise_and_gumbel_temp(noise_discrete_unif_max, gumbel_temp):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, optimizer="adam", opt_lr = opt_lr,
+def create_tabGAN_for_leaky_relu_alpha(leaky_relu_alpha):
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    gumbel_temperature=gumbel_temp, jit_compile_train_step=jit_compile_train_step)
+                    leaky_relu_alpha=leaky_relu_alpha)
     return tg_qtr
 
-utils.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_noise_and_gumbel_temp,
-    hyperparams_vec=noise_and_gumbel_temp_vec,
-    n_epochs=n_epochs_noise_and_gumbel_temp,
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+    create_tabGAN_func=create_tabGAN_for_leaky_relu_alpha,
+    hyperparams_vec=leaky_relu_alpha_vec,
+    n_epochs=n_epochs_leaky_relu_alpha,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_noise_and_gumbel_temp_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_leaky_relu_alpha_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "oh_encoding_choices",
-    hyperparams_subname = ["noise_discrete_unif_max", "gumbel_temp"],
+    hyperparams_name = "leaky_relu_alpha",
+    add_comparison_folder=True,
+    overwrite_dataset=False,
+    progress_bar_subprocess=True,
+    progress_bar_subsubprocess=progress_bar_subsubprocess
+)
+
+dropout_rate_critic_vec = np.round(np.arange(0, 0.76, 0.05),2).tolist()
+n_synthetic_datasets_dropout_rate_critic_comparison = 10
+n_epochs_dropout_rate_critic = 100
+
+def create_tabGAN_for_dropout_rate_critic(dropout_rate_critic):
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
+                    quantile_transformation_int = True, quantile_rand_transformation = True,
+                    noise_discrete_unif_max = noise_discrete_unif_max,
+                    add_dropout_critic=True, dropout_rate_critic=dropout_rate_critic)
+    return tg_qtr
+
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+    create_tabGAN_func=create_tabGAN_for_dropout_rate_critic,
+    hyperparams_vec=dropout_rate_critic_vec,
+    n_epochs=n_epochs_dropout_rate_critic,
+    dataset_dir=const.dir.hyperparams_tuning(),
+    batch_size=batch_size,
+    subfolder="tabGAN-qtr",
+    n_synthetic_datasets=n_synthetic_datasets_dropout_rate_critic_comparison,
+    restart = True,
+    redo_hyperparams_vec = [],
+    plot_only_new_progress = True,
+    hyperparams_name = "dropout_rate_critic",
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
