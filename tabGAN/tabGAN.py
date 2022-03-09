@@ -351,7 +351,7 @@ class TabGAN:
         """
         Function for generating data using the data synthesizer
         """
-        if n == None:
+        if n is None:
             n = self.nrow
         noise = self.generate_latent(n)
         queries = self.generate_queries(n)

@@ -17,7 +17,7 @@ def generate_multiple_datasets(tabgan, dataset_dir, n_synthetic_datasets, n_epoc
                 tabgan.train(n_epochs, batch_size=batch_size, restart_training=True,
                              plot_loss=False, progress_bar=progress_bar_dataset,
                              progress_bar_desc=f"Progress generating dataset {i+1}")
-                fake_train = tabgan.generate_data()
+                fake_train = tabgan.generate_dataset()
                 fake_train.to_csv(current_path)
             else:
                 pass
