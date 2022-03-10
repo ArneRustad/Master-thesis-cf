@@ -209,7 +209,7 @@ class TabGAN:
         # Create either tf dataset or numpy dataset in float32
         if self.tf_data_use:
             self.data_processed = tf.data.Dataset.zip(
-                (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num, dtype=tf.float32)),
+                (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled, dtype=tf.float32)),
                  tf.data.Dataset.from_tensor_slices(tf.cast(self.data_discrete_oh, dtype=tf.float32))
                  )
             )
