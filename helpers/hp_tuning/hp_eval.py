@@ -18,9 +18,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             legend_title=None,
                                             only_separate_by_color=False,
                                             separate_legends=False,
+                                            result_table_split_hps=False,
                                             drop_na=False,
                                             report_na=None,
-                                            result_table_split_hps=False):
+                                            print_csv_file_paths=False):
     if report_na is None:
         report_na=drop_na
 
@@ -106,6 +107,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             curr_dataset_dir = os.path.join(dataset_dir, subfolder)
             for j in range(n_synthetic_datasets):
                 path = os.path.join(curr_dataset_dir, f"gen{j}.csv")
+                if print_csv_file_paths:
+                    print(path)
                 fake_train = pd.read_csv(path, index_col=0)
                 if (report_na or drop_na) and (fake_train.isna().sum().sum() > 0):
                     fake_train_wo_nan = fake_train.dropna()
