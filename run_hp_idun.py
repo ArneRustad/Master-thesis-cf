@@ -12,8 +12,8 @@ opt_lr = 0.0002
 adam_beta1 = 0.5
 noise_discrete_unif_max = 0
 batch_size = 500
-progress_bar_subsubprocess=False
-jit_compile_train_step=False
+progress_bar_subsubprocess = False
+jit_compile_train_step = False
 
 const.dir.storage = lambda: "/cluster/work/arneir"
 print("Storage dir:", const.dir.storage())
@@ -54,7 +54,7 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     progress_bar_subsubprocess=progress_bar_subsubprocess
 )
 
-dropout_rate_critic_vec = np.round(np.arange(0, 0.76, 0.05),2).tolist()
+dropout_rate_critic_vec = np.round(np.arange(0, 0.76, 0.05), 2).tolist()
 n_synthetic_datasets_dropout_rate_critic_comparison = 10
 n_epochs_dropout_rate_critic = 100
 
@@ -77,6 +77,35 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
     hyperparams_name = "dropout_rate_critic",
+    add_comparison_folder=True,
+    overwrite_dataset=False,
+    progress_bar_subprocess=True,
+    progress_bar_subsubprocess=progress_bar_subsubprocess
+)
+
+dropout_rate_generator_vec = np.round(np.arange(0, 0.76, 0.05),2).tolist()
+n_synthetic_datasets_dropout_rate_generator_comparison = 10
+n_epochs_dropout_rate_generator = 100
+
+def create_tabGAN_for_dropout_rate_generator(dropout_rate_generator):
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
+                    quantile_transformation_int = True, quantile_rand_transformation = True,
+                    noise_discrete_unif_max = noise_discrete_unif_max,
+                    add_dropout_generator=True, dropout_rate_generator=dropout_rate_generator)
+    return tg_qtr
+
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+    create_tabGAN_func=create_tabGAN_for_dropout_rate_generator,
+    hyperparams_vec=dropout_rate_generator_vec,
+    n_epochs=n_epochs_dropout_rate_generator,
+    dataset_dir=const.dir.hyperparams_tuning(),
+    batch_size=batch_size,
+    subfolder="tabGAN-qtr",
+    n_synthetic_datasets=n_synthetic_datasets_dropout_rate_generator_comparison,
+    restart = True,
+    redo_hyperparams_vec = [],
+    plot_only_new_progress = True,
+    hyperparams_name = "dropout_rate_generator",
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
