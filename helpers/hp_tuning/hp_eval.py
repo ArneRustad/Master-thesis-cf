@@ -193,21 +193,25 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             ), axis=1)
             return result_split_hps
     else:
-        fig, ax = plt.subplots(1, figsize=figsize)
-        ax.set_xscale(x_scale)
+        if plot_separate:
+            print("hei")
+            fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
+            ax_accuracy, ax_auc = axes
+        else:
+            fig, ax = plt.subplots(1, figsize=figsize)
+            ax_accuracy = ax_auc = ax
+        ax_accuracy.set_xscale(x_scale)
+        ax_auc.set_xscale(x_scale)
         color_accuracy = next(ax._get_lines.prop_cycler)['color']
         color_auc = next(ax._get_lines.prop_cycler)['color']
-        plt.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy, marker="o")
+        ax_accuracy.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy, marker="o")
         if plot_sd:
-            plt.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
+            ax_accuracy.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
                              result["Accuracy"] + result["SD Accuracy"], label=r"Accuracy $\pm$ SD Accuracy", alpha=0.5,
                              color=color_accuracy)
-        if plot_separate:
-            fig, ax = plt.subplots(1, figsize=figsize)
-            ax.set_xscale(x_scale)
-        plt.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc, marker="o")
+        ax_auc.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc, marker="o")
         if plot_sd:
-            plt.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
+            ax_auc.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
                              label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
         plt.legend(loc=legend_pos)
         if not save_path is None:

@@ -54,7 +54,8 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     progress_bar_subsubprocess=progress_bar_subsubprocess
 )
 
-dropout_rate_critic_vec = np.round(np.arange(0, 0.76, 0.05), 2).tolist()
+dropout_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
+                          np.round(np.arange(0, 0.1, 0.01), 2).tolist()
 n_synthetic_datasets_dropout_rate_critic_comparison = 10
 n_epochs_dropout_rate_critic = 100
 
@@ -83,7 +84,8 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     progress_bar_subsubprocess=progress_bar_subsubprocess
 )
 
-dropout_rate_generator_vec = np.round(np.arange(0, 0.76, 0.05),2).tolist()
+dropout_rate_generator_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() +\
+                             np.round(np.arange(0, 0.1, 0.01), 2).tolist()
 n_synthetic_datasets_dropout_rate_generator_comparison = 10
 n_epochs_dropout_rate_generator = 100
 
