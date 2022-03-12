@@ -194,7 +194,6 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             return result_split_hps
     else:
         if plot_separate:
-            print("hei")
             fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
             ax_accuracy, ax_auc = axes
         else:
@@ -202,8 +201,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             ax_accuracy = ax_auc = ax
         ax_accuracy.set_xscale(x_scale)
         ax_auc.set_xscale(x_scale)
-        color_accuracy = next(ax._get_lines.prop_cycler)['color']
-        color_auc = next(ax._get_lines.prop_cycler)['color']
+        color_accuracy = next(ax_accuracy._get_lines.prop_cycler)['color']
+        color_auc = next(ax_auc._get_lines.prop_cycler)['color']
         ax_accuracy.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy, marker="o")
         if plot_sd:
             ax_accuracy.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
@@ -213,7 +212,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         if plot_sd:
             ax_auc.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
                              label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
-        plt.legend(loc=legend_pos)
+        ax_accuracy.legend(loc=legend_pos)
+        ax_auc.legend(loc=legend_pos)
         if not save_path is None:
             if not save_dir is None:
                 save_path = os.path.join(save_dir, save_path)

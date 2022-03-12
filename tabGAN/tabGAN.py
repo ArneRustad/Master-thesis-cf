@@ -32,7 +32,7 @@ class TabGAN:
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
                  quantile_transformation_int=True, quantile_rand_transformation=True,
                  n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05,
-                 leaky_relu_alpha=0.3, add_dropout_critic=False, add_dropout_generator=False,
+                 leaky_relu_alpha=0.3, add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
                  adam_amsgrad=False, sgd_nesterov=False,
@@ -389,14 +389,16 @@ class TabGAN:
             combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
             inputs = [input_numeric, input_discrete]
         hidden = combined1
+        if 0 in self.add_dropout_critic:
+            hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_critic_layers):
             hidden = Dense(self.dim_hidden_critic[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
                            name=f"hidden{i+1}")(hidden)
-        if self.add_dropout_critic:
-            hidden = Dropout(rate=self.dropout_rate_critic)(hidden)
+            if (i+1) in self.add_dropout_critic:
+                hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout{i+1}")(hidden)
         output = Dense(1, name="output_critic")(hidden)
         model = Model(inputs=inputs, outputs=output)
-        return (model)
+        return model
 
     def create_generator(self):
         """
@@ -413,11 +415,13 @@ class TabGAN:
             inputs = [latent]
 
         hidden = combined1
+        if 0 in self.add_dropout_generator:
+            hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_generator_layers):
             hidden = Dense(self.dim_hidden_generator[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
                            name=f"hidden{i+1}")(hidden)
-        if self.add_dropout_generator:
-            hidden = Dropout(rate=self.dropout_rate_generator)(hidden)
+            if (i+1) in self.add_dropout_generator:
+                hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)
 
         if (self.n_columns_discrete == 0):
             raise ValueException("TabGAN not yet implemented for zero discrete columns")
