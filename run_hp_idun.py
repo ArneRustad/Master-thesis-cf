@@ -26,8 +26,8 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 dropout_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
-                          np.round(np.arange(0, 0.1, 0.01), 2).tolist() +\
-                          [0.001, 0.002, 0.003, 0.004, 0.005, 0.011, 0.012, 0.013, 0.014, 0.015]
+                          np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
+                          np.round(np.arange(0, 0.02, 0.001), 3).tolist()
 n_synthetic_datasets_dropout_rate_critic_comparison = 10
 n_epochs_dropout_rate_critic = 100
 
@@ -35,7 +35,7 @@ def create_tabGAN_for_dropout_rate_critic(dropout_rate_critic):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=True, dropout_rate_critic=dropout_rate_critic)
+                    add_dropout_critic=[2], dropout_rate_critic=dropout_rate_critic)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
@@ -57,8 +57,8 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
 )
 
 dropout1_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
-                           np.round(np.arange(0, 0.1, 0.01), 2).tolist() + \
-                           [0.001, 0.002, 0.003, 0.004, 0.005, 0.011, 0.012, 0.013, 0.014, 0.015]
+                           np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
+                           np.round(np.arange(0, 0.02, 0.001), 3).tolist()
 n_synthetic_datasets_dropout1_rate_critic_comparison = 10
 n_epochs_dropout1_rate_critic = 100
 
@@ -87,33 +87,3 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     progress_bar_subsubprocess=progress_bar_subsubprocess
 )
 
-dropout0_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
-                           np.round(np.arange(0, 0.1, 0.01), 2).tolist()
-#[0.001, 0.002, 0.003, 0.004, 0.005, 0.011, 0.012, 0.013, 0.014, 0.015]
-n_synthetic_datasets_dropout0_rate_critic_comparison = 10
-n_epochs_dropout0_rate_critic = 100
-
-def create_tabGAN_for_dropout0_rate_critic(dropout0_rate_critic):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
-                    quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=[0], dropout_rate_critic=dropout0_rate_critic)
-    return tg_qtr
-
-helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_dropout0_rate_critic,
-    hyperparams_vec=dropout0_rate_critic_vec,
-    n_epochs=n_epochs_dropout0_rate_critic,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_dropout0_rate_critic_comparison,
-    restart = True,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "dropout0_rate_critic",
-    add_comparison_folder=True,
-    overwrite_dataset=False,
-    progress_bar_subprocess=True,
-    progress_bar_subsubprocess=progress_bar_subsubprocess
-)
