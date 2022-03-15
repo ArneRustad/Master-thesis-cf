@@ -26,7 +26,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 
-dropout0_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
+dropout0_rate_critic_vec = np.round(np.arange(0.1, 0.66, 0.05), 2).tolist() + \
                            np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
                            np.round(np.arange(0, 0.02, 0.001), 3).tolist()
 n_synthetic_datasets_dropout0_rate_critic_comparison = 10
