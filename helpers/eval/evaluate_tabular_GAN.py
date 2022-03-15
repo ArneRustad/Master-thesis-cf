@@ -1,6 +1,8 @@
 from tqdm.auto import tqdm
 import pandas as pd
 from helpers.eval.eval_xgboost_model import fit_and_evaluate_xgboost
+import numpy as np
+import os
 
 def eval_tabular_GAN_ml_efficacy(data_train, data_test, dataset_dir, subfolders, n_synthetic_datasets,
                                        name_true_train_dataset = "Train dataset",

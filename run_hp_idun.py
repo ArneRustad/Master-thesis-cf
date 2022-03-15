@@ -25,65 +25,34 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-dropout_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
-                          np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
-                          np.round(np.arange(0, 0.02, 0.001), 3).tolist()
-n_synthetic_datasets_dropout_rate_critic_comparison = 10
-n_epochs_dropout_rate_critic = 100
+add_connection_vec = [(False, False), (True, False), (False, True)]
+n_synthetic_datasets_add_connection_comparison = 20
+n_epochs_add_connection = 100
 
-def create_tabGAN_for_dropout_rate_critic(dropout_rate_critic):
+def create_tabGAN_for_add_connection(add_connection_discrete_to_num, add_connection_num_to_discrete):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=[2], dropout_rate_critic=dropout_rate_critic)
+                    add_dropout_critic=[0],
+                    add_connection_discrete_to_num=add_connection_discrete_to_num,
+                    add_connection_num_to_discrete=add_connection_num_to_discrete)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_dropout_rate_critic,
-    hyperparams_vec=dropout_rate_critic_vec,
-    n_epochs=n_epochs_dropout_rate_critic,
+    create_tabGAN_func=create_tabGAN_for_add_connection,
+    hyperparams_vec=add_connection_vec,
+    n_epochs=n_epochs_add_connection,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_dropout_rate_critic_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_add_connection_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "dropout_rate_critic",
+    hyperparams_name = "add_connection",
+    hyperparams_subname=["discrete_to_num", "num_to_discrete"],
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
     progress_bar_subsubprocess=progress_bar_subsubprocess
 )
-
-dropout1_rate_critic_vec = np.round(np.arange(0.1, 0.76, 0.05), 2).tolist() + \
-                           np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
-                           np.round(np.arange(0, 0.02, 0.001), 3).tolist()
-n_synthetic_datasets_dropout1_rate_critic_comparison = 10
-n_epochs_dropout1_rate_critic = 100
-
-def create_tabGAN_for_dropout1_rate_critic(dropout1_rate_critic):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
-                    quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=[1], dropout_rate_critic=dropout1_rate_critic)
-    return tg_qtr
-
-helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_dropout1_rate_critic,
-    hyperparams_vec=dropout1_rate_critic_vec,
-    n_epochs=n_epochs_dropout1_rate_critic,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_dropout1_rate_critic_comparison,
-    restart = True,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "dropout1_rate_critic",
-    add_comparison_folder=True,
-    overwrite_dataset=False,
-    progress_bar_subprocess=True,
-    progress_bar_subsubprocess=progress_bar_subsubprocess
-)
-

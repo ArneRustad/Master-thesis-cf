@@ -152,11 +152,12 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             color_dict = {hp_sub1: next(axes[0]._get_lines.prop_cycler)['color']
                           for hp_sub1 in np.unique(hp_sub_vecs[0,])}
             linestyles = ['-', '--', ':', '-.']
-            if hp_sub_vecs.shape[1] >= 2:
+            print(hp_sub_vecs)
+            if hp_sub_vecs.shape[0] >= 2:
                 linestyle_dict = {hp_sub2: linestyle
                                   for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
             else:
-                linestyle_dict = {hp_sub2 : linestyles[0] for hp_sub2 in np.unique(hp_sub_vecs[1,])}
+                linestyle_dict = {hp_sub2 : linestyles[0] for hp_sub2 in np.unique(hp_sub_vecs[0, ])}
             for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
                 curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]

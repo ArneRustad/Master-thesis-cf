@@ -2,6 +2,7 @@ import os
 from tqdm.auto import tqdm
 import shutil
 import argparse
+import pickle
 # import pandas #Only used if --redo_na is called
 
 parser = argparse.ArgumentParser()
@@ -13,7 +14,8 @@ parser.add_argument("--progress_bar", help="Bool - add progress bar or not", typ
 parser.add_argument("--redo", help="If activated, redo copying of all files even if they already exist at destination directory",
                     type=bool, default=False)
 parser.add_argument("--redo_na", help="If activated, redo copying of all datasets containing NA rows even if dataset already exist at destination directory")
-
+parser.add_argument("--cache_dir", help="Directory where a pickle file with current activate path will be stored",
+                    type=str, default="")
 def extract_relative_filepaths(directory, filetype = ""):
     file_relpaths_of_interest = set()
     for dirpath, dirnames, filenames in os.walk(directory):
@@ -37,7 +39,23 @@ def check_for_na_row(path, dir="", filetypes_allowed=[".csv"]):
     return False
 
 def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=True, redo=False, redo_na=False,
-                                   verbal=1):
+                                   cache_dir="", cache_name="file_transfer_active_path.pkl", verbal=1):
+    # Check if unresolved copy from last transfer
+    assert cache_name[-4:] == ".pkl"
+    if verbal >= 1:
+        print("Checking for unresolved copy from last transfer")
+    if cache_dir:
+        cache_active_path_file = os.path.join(cache_dir, cache_name)
+        if os.path.exists(cache_active_path_file):
+            with open(cache_active_path_file, 'rb') as file:
+                potential_activate_path = pickle.load(file)
+            if potential_activate_path:
+                os.remove(potential_activate_path)
+                if verbal >= 1:
+                    print("Found and deleted unresolved copy from last transfer")
+
+    if verbal >= 1:
+        print("Determining file paths for files to copy")
     file_relpaths_of_interest_src = extract_relative_filepaths(src_dir, filetype=filetype)
     if redo:
         file_relpaths_of_interest = file_relpaths_of_interest_src
@@ -56,14 +74,22 @@ def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=T
 
     if verbal >= 1:
         print(f"Found {len(file_relpaths_of_interest)} files to copy")
+
     with tqdm(total=len(file_relpaths_of_interest), disable=not progress_bar) as pbar:
         for file_relpath in file_relpaths_of_interest:
             filepath_src = os.path.join(src_dir, file_relpath)
             filepath_dst = os.path.join(dst_dir, file_relpath)
             os.makedirs(os.path.dirname(filepath_dst), exist_ok=True)
+            if cache_dir:
+                with open(cache_active_path_file, 'wb') as file:
+                    pickle.dump(filepath_dst, file)
             shutil.copyfile(filepath_src, filepath_dst)
+            if cache_dir:
+                with open(cache_active_path_file, 'wb') as file:
+                    pickle.dump("", file)
             pbar.update(1)
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    transfer_files_between_folders(args.src_dir, args.dst_dir, filetype=args.filetype, progress_bar=args.progress_bar)
+    transfer_files_between_folders(args.src_dir, args.dst_dir, filetype=args.filetype, progress_bar=args.progress_bar,
+                                   cache_dir=args.cache_dir)

@@ -34,6 +34,7 @@ class TabGAN:
                  n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  leaky_relu_alpha=0.3, add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
+                 add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
                  adam_amsgrad=False, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
@@ -132,6 +133,8 @@ class TabGAN:
         self.add_dropout_generator = add_dropout_generator
         self.dropout_rate_critic = dropout_rate_critic
         self.dropout_rate_generator = dropout_rate_generator
+        self.add_connection_discrete_to_num = add_connection_discrete_to_num
+        self.add_connection_num_to_discrete = add_connection_num_to_discrete
         self.use_query = use_query
         self.tf_data_use = tf_data_use
         self.tf_data_shuffle = tf_data_shuffle
@@ -405,6 +408,9 @@ class TabGAN:
         Internal function for creating the generator neural network. Uses input parameters given to TabGAN to decide
         between different critic architectures. Also uses the number of discrete columns to decide between architectures
         """
+        if self.n_columns_num == 0:
+            raise ValueException("TabGAN not yet implemented for zero numerical columns")
+
         latent = Input(shape=(self.dim_latent), name="Latent")
         if self.use_query:
             query = Input(shape=(self.n_columns_discrete_oh), name="Query")
@@ -423,23 +429,34 @@ class TabGAN:
             if (i+1) in self.add_dropout_generator:
                 hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)
 
-        if (self.n_columns_discrete == 0):
+        if not self.add_connection_discrete_to_num:
+            output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden)
+        if self.add_connection_num_to_discrete:
+            potential_concat_hidden_and_num = concatenate((hidden, output_numeric),
+                                                          name="Concatenate_hidden_and_numeric")
+        else:
+            potential_concat_hidden_and_num = hidden
+
+        if self.n_columns_discrete == 0:
             raise ValueException("TabGAN not yet implemented for zero discrete columns")
-        elif (self.n_columns_discrete == 1):
+        elif self.n_columns_discrete == 1:
             output_discrete_i = Dense(self.categories_len[0], name="%s_output" % self.columns_discrete[0])(hidden)
             output_discrete = Activation("gumbel_softmax", name="Gumbel_softmax")(output_discrete_i)
         else:
             output_discrete_sep = []
             for i in range(self.n_columns_discrete):
-                output_discrete_i = Dense(self.categories_len[i], name="%s_output" % self.columns_discrete[i])(hidden)
+                output_discrete_i = Dense(self.categories_len[i],
+                                          name="%s_output" % self.columns_discrete[i])(potential_concat_hidden_and_num)
                 output_discrete_sep.append(
                     Activation("gumbel_softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
 
             output_discrete = concatenate(output_discrete_sep, name="Discrete_output")
 
-        if self.n_columns_num == 0:
-            raise ValueException("TabGAN not yet implemented for zero numerical columns")
-        output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden)
+        if self.add_connection_discrete_to_num:
+            concatenate_hidden_and_discrete = concatenate((hidden, output_discrete),
+                                                          name="Concatenate_hidden_and_discrete")
+            output_numeric = Dense(self.n_columns_num, name="Numeric_output")(concatenate_hidden_and_discrete)
+
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return (model)
 

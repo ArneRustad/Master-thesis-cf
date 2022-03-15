@@ -21,11 +21,12 @@ parser.add_argument("--redo_na", help="If activated, redo copying of all dataset
 idun_dir = "V:\\hyperparams_tuning"
 markov_dir = "S:\\arneir\\Master-thesis-storage\\hyperparams_tuning"
 local_dir = "C:\\Users\\Arne\OneDrive - NTNU\\Backup-storage-master-thesis\\hyperparams_tuning"
+cache_dir = "S:\\arneir\\Master-thesis-storage\\python_objects"
 
 if __name__ == "__main__":
     args = parser.parse_args()
     kwargs = {"filetype": args.filetype, "progress_bar": args.progress_bar, "redo": args.redo, "redo_na": args.redo_na,
-              "verbal": args.verbal}
+              "verbal": args.verbal, "cache_dir" : cache_dir}
     if args.forwards:
         if args.verbal >= 1:
             print("Transferring files from Idun to Markov")
