@@ -7,16 +7,6 @@ from .tabGAN import TabGAN
 from .fast_nondominated_sort import fast_non_dominated_sort
 
 class TabGANcfmc(TabGAN):
-    def use_critic_on_data(self, data):
-        """
-        Internal function for preprocessing data and then fetching it to the critic. Mostly used for debugging purposes.
-        """
-        num_data = data[self.columns_num]
-        discrete_data = data[self.columns_discrete]
-        num_data_scaled = self.scaler_num.transform(num_data)
-        discrete_data_oh = self.oh_encoder.transform(discrete_data)
-        queries_batch = tf.zeros([data.shape[0], self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
-        return (self.critic.predict([num_data_scaled, discrete_data_oh, queries_batch]))
 
     def generate_counterfactuals(self, n_to_keep, pred_func, x_obs, wanted_range=None, n_to_generate=None,
                                  add_plausibility_objective=False, epsilon_num_percent=0.005, return_objectives=True):

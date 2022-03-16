@@ -45,7 +45,8 @@ class TabGAN:
                  tf_make_train_step_graph=None, tf_make_numpy_data_step_graph=None,
                  tf_make_em_distance_graph=None, tf_make_generate_latent_graph=None,
                  jit_compile=False, jit_compile_critic_step=None, jit_compile_gen_step=None,
-                 jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None):
+                 jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
+                 default_epochs_to_train=None):
         # Create variable defaults if needed
         if n_hidden_generator_layers is None:
             n_hidden_generator_layers = n_hidden_layers
@@ -154,6 +155,7 @@ class TabGAN:
         self.jit_compile_generate_latent = jit_compile_generate_latent
         self.jit_compile_em_distance = jit_compile_em_distance
         self.jit_compile_arg_func = None # Will be initialized later depending on tensorflow version being less than 2.5 or above
+        self.default_epochs_to_train = default_epochs_to_train
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -555,7 +557,7 @@ class TabGAN:
         ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
         return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
 
-    def train(self, n_epochs, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
+    def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
               plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
               plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_graph=None,
               save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
@@ -566,6 +568,11 @@ class TabGAN:
         """
         Function for training the data synthesizer (training the GAN architecture).
         """
+        if n_epochs is None:
+            if self.default_epochs_to_train is None:
+                raise ValueError("Number of epochs to run must be entered as a parameter if no default value is given when creating class object.")
+            else:
+                n_epochs = self.default_epochs_to_train
         if tf_make_graph is None:
             tf_make_graph = self.tf_make_graph
             self.initialized_gan=False
@@ -767,3 +774,14 @@ class TabGAN:
         else:
             self.ckpt.restore(ckpt_path).expect_partial()
         self.start_epoch = self.ckpt.epoch.numpy()
+
+    def use_critic_on_data(self, data):
+        """
+        Internal function for preprocessing data and then fetching it to the critic. Mostly used for debugging purposes.
+        """
+        num_data = data[self.columns_num]
+        discrete_data = data[self.columns_discrete]
+        num_data_scaled = self.scaler_num.transform(num_data)
+        discrete_data_oh = self.oh_encoder.transform(discrete_data)
+        #queries_batch = tf.zeros([data.shape[0], self.n_columns_discrete_oh], dtype=tf.dtypes.float32)
+        return self.critic.predict([num_data_scaled, discrete_data_oh])
