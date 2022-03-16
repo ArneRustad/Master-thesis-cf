@@ -25,32 +25,31 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-add_connection_vec = [(False, False), (True, False), (False, True)]
-n_synthetic_datasets_add_connection_comparison = 20
-n_epochs_add_connection = 100
+batch_size_but_constant_iterations_vec = [100, 250, 500, 1000, 2500, 5000]
+n_synthetic_datasets_batch_size_but_constant_iterations_comparison = 10
 
-def create_tabGAN_for_add_connection(add_connection_discrete_to_num, add_connection_num_to_discrete):
+def create_tabGAN_for_batch_size_but_constant_iterations(batch_size):
+    import math
+    n_epochs = int(math.ceil(100 * batch_size / 500))
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=[0],
-                    add_connection_discrete_to_num=add_connection_discrete_to_num,
-                    add_connection_num_to_discrete=add_connection_num_to_discrete)
+                    batch_size=batch_size,
+                    default_epochs_to_train=n_epochs)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_add_connection,
-    hyperparams_vec=add_connection_vec,
-    n_epochs=n_epochs_add_connection,
+    create_tabGAN_func=create_tabGAN_for_batch_size_but_constant_iterations,
+    hyperparams_vec=batch_size_but_constant_iterations_vec,
+    n_epochs=None,
     dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
+    batch_size=None,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_add_connection_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_batch_size_but_constant_iterations_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "add_connection",
-    hyperparams_subname=["discrete_to_num", "num_to_discrete"],
+    hyperparams_name = "batch_size_but_constant_iterations",
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
