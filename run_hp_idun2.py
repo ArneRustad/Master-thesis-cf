@@ -25,32 +25,29 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
+tf_data_use_vec = [False, True]
+n_synthetic_datasets_tf_data_use_comparison = 100
+n_epochs_tf_data_use = 100
 
-dropout0_rate_critic_vec = np.round(np.arange(0.1, 0.66, 0.05), 2).tolist() + \
-                           np.round(np.arange(0.02, 0.1, 0.01), 2).tolist() + \
-                           np.round(np.arange(0, 0.02, 0.001), 3).tolist()
-n_synthetic_datasets_dropout0_rate_critic_comparison = 10
-n_epochs_dropout0_rate_critic = 100
-
-def create_tabGAN_for_dropout0_rate_critic(dropout0_rate_critic):
+def create_tabGAN_for_tf_data_use(tf_data_use):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    add_dropout_critic=[0], dropout_rate_critic=dropout0_rate_critic)
+                    tf_data_use=tf_data_use)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_dropout0_rate_critic,
-    hyperparams_vec=dropout0_rate_critic_vec,
-    n_epochs=n_epochs_dropout0_rate_critic,
+    create_tabGAN_func=create_tabGAN_for_tf_data_use,
+    hyperparams_vec=tf_data_use_vec,
+    n_epochs=n_epochs_tf_data_use,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_dropout0_rate_critic_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_tf_data_use_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "dropout0_rate_critic",
+    hyperparams_name = "tf_data_use",
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
