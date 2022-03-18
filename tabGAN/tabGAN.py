@@ -4,23 +4,21 @@ import os
 import shutil
 import scipy
 import tensorflow as tf
+import warnings
+from math import floor, ceil
+from tqdm.auto import tqdm
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU, Embedding,
+                                     Activation, Dropout)
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, QuantileTransformer
 from sklearn.compose import ColumnTransformer
 
-from math import ceil
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU, Embedding,
-                                     Activation, Dropout)
-
 from IPython.display import clear_output, display, Image, Video
 import matplotlib.pyplot as plt
-
-from tqdm.auto import tqdm
-
-import tensorflow_probability as tfp
-tfd = tfp.distributions
-
 
 class TabGAN:
     """
@@ -30,8 +28,10 @@ class TabGAN:
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
-                 quantile_transformation_int=True, quantile_rand_transformation=True,
-                 n_quantiles_int=1000, qtr_spread=0.4, qtr_lbound_apply=0.05,
+                 quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
+                 n_quantiles_int=1000, n_quantile_subsample=1e5,
+                 quantile_rand_transformation=True, qtr_spread=0.4,
+                 qtr_lbound_apply=0.05,
                  leaky_relu_alpha=0.3, add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
@@ -124,8 +124,11 @@ class TabGAN:
         self.ckpt_prefix = os.path.join(self.ckpt_dir, self.ckpt_name) if not self.ckpt_dir is None else None
         self.noise_discrete_unif_max = noise_discrete_unif_max
         self.quantile_transformation_int = quantile_transformation_int
+        self.max_quantile_share = max_quantile_share
+        self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
         self.n_quantiles_int = n_quantiles_int
+        self.n_quantiles_subsample = n_quantile_subsample
         self.initialized_gan = False
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
@@ -170,6 +173,9 @@ class TabGAN:
             "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution='normal'), self.columns_int)])
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
 
+            if self.max_quantile_share < 1:
+                self.fix_quantile_share()
+
             if self.quantile_rand_transformation:
                 self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled)
         else:
@@ -189,7 +195,7 @@ class TabGAN:
         self.oh_encoder = OneHotEncoder(sparse=False)
         self.data_discrete_oh = self.oh_encoder.fit_transform(self.data_discrete)
         self.n_columns_discrete_oh = self.data_discrete_oh.shape[1]
-        if (self.noise_discrete_unif_max > 0):
+        if self.noise_discrete_unif_max > 0:
             noise_discrete = np.random.uniform(low = 0, high = self.noise_discrete_unif_max,
                                               size = self.data_discrete_oh.shape)
             self.data_discrete_oh += noise_discrete * np.where(self.data_discrete_oh > 0.5, -1, 1)
@@ -239,7 +245,6 @@ class TabGAN:
             self.data_processed_iter = None
 
 
-
     def initialize_gan(self, tf_make_graph=True):
         """
         Internal function used for initializing the GAN architecture
@@ -286,6 +291,54 @@ class TabGAN:
             self.train_step = self.train_step_func
 
         self.initialized_gan = True
+
+    def fix_quantile_share(self):
+        qt_transformer = self.scaler_num.named_transformers_["int"]
+        n_quantiles = qt_transformer.n_quantiles_
+        max_n_quantiles_per_value = floor(n_quantiles * self.max_quantile_share)
+        if max_n_quantiles_per_value == 0:
+            warnings.warn(f"You have chose a max_share={self.max_quantile_share} along with "
+                          f"n_quantiles={self.n_quantiles_int} such that the maximum number of" 
+                          "categories per unique value is less than 1. This is automatically changed"
+                          "such that maximum number of categories per unique value is equal to 1.")
+            max_n_quantiles_per_value = 1
+        for col_qt_idx, col_idx in enumerate(self.columns_num_int_pos):
+            col_unique_values, col_value_counts = np.unique(qt_transformer.quantiles_[:, col_qt_idx], return_counts=True)
+            col_percentages = col_value_counts / sum(col_value_counts)
+            if max(col_percentages) > self.max_quantile_share:
+                if self.print_quantile_shares:
+                    print(f"Column {self.columns_num[col_idx]} quantile percentages:", col_percentages)
+                indices_too_common_values = np.where(col_percentages > self.max_quantile_share)[0]
+                # Freeing up available quantile spaces from values that are too common
+                # (have a larger share than permitted by the parameter self.max_quantile_share)
+                col_bool_remaining_values = np.ones(self.data_num.iloc[:, col_idx].shape[0], dtype=bool)
+                for curr_common_value_idx in indices_too_common_values:
+                    curr_common_value = col_unique_values[curr_common_value_idx]
+                    curr_common_value_count = col_value_counts[curr_common_value_idx]
+                    curr_avail_quantile_indices = np.nonzero(
+                        np.isclose(qt_transformer.quantiles_[:, col_qt_idx], curr_common_value)
+                    )[0][max_n_quantiles_per_value:]
+                    qt_transformer.quantiles_[curr_avail_quantile_indices, col_qt_idx] = np.nan
+                    col_bool_remaining_values *= np.logical_not(np.isclose(self.data_num.iloc[:, col_idx], curr_common_value))
+
+                # Reset the quantile spaces for values with shares smaller than the parameter max_share,
+                # before a redraw
+                indices_less_common = np.where(col_percentages <= self.max_quantile_share)
+                values_less_common = col_unique_values[indices_less_common]
+                for curr_less_common_value in values_less_common:
+                    qt_transformer.quantiles_[np.where(np.isclose(qt_transformer.quantiles_, curr_less_common_value))[0], col_qt_idx] = np.nan
+
+                available_quantile_indices = np.where(np.isnan(qt_transformer.quantiles_))[0]
+                n_available_quantiles = len(available_quantile_indices)
+                col_remaining_values = self.data_num.iloc[:, col_idx].loc[col_bool_remaining_values].to_numpy()
+
+                if col_remaining_values.shape[0] != n_available_quantiles:
+                    qt_transformer.quantiles_[available_quantile_indices,
+                                  col_qt_idx] = np.nanpercentile(col_remaining_values,
+                                                              q=np.linspace(0, 100, n_available_quantiles))
+                else:
+                    qt_transformer.quantiles_[available_quantile_indices, col_qt_idx] = col_remaining_values
+                qt_transformer.quantiles_[:, col_qt_idx] = np.sort(qt_transformer.quantiles_[:, col_qt_idx])
 
     def randomize_quantile_transformation(self, data):
         """
