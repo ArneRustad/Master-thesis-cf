@@ -25,31 +25,29 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-batch_size_but_constant_iterations_vec = [100, 250, 500, 1000, 2500, 5000]
-n_synthetic_datasets_batch_size_but_constant_iterations_comparison = 10
+max_quantile_share_vec = np.round(np.arange(0.3, 1.01, 0.05), 2).tolist()
+n_synthetic_datasets_max_quantile_share_comparison = 25
+n_epochs_max_quantile_share = 100
 
-def create_tabGAN_for_batch_size_but_constant_iterations(batch_size):
-    import math
-    n_epochs = int(math.ceil(100 * batch_size / 500))
+def create_tabGAN_for_max_quantile_share(max_quantile_share):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max,
-                    batch_size=batch_size,
-                    default_epochs_to_train=n_epochs)
+                    max_quantile_share=max_quantile_share)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_batch_size_but_constant_iterations,
-    hyperparams_vec=batch_size_but_constant_iterations_vec,
-    n_epochs=None,
+    create_tabGAN_func=create_tabGAN_for_max_quantile_share,
+    hyperparams_vec=max_quantile_share_vec,
+    n_epochs=n_epochs_max_quantile_share,
     dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=None,
+    batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_batch_size_but_constant_iterations_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_max_quantile_share_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "batch_size_but_constant_iterations",
+    hyperparams_name = "max_quantile_share",
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
