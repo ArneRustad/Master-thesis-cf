@@ -333,9 +333,13 @@ class TabGAN:
                 col_remaining_values = self.data_num.iloc[:, col_idx].loc[col_bool_remaining_values].to_numpy()
 
                 if col_remaining_values.shape[0] != n_available_quantiles:
-                    qt_transformer.quantiles_[available_quantile_indices,
-                                  col_qt_idx] = np.nanpercentile(col_remaining_values,
-                                                              q=np.linspace(0, 100, n_available_quantiles))
+                    new_quantiles = np.nanpercentile(col_remaining_values,
+                                                     q=np.linspace(0, 100, n_available_quantiles))
+                    # Due to floating-point precision error in `np.nanpercentile`,
+                    # make sure that quantiles are monotonically increasing.
+                    # Upstream issue in numpy: https://github.com/numpy/numpy/issues/14685
+                    new_quantiles = np.maximum.accumulate(new_quantiles)
+                    qt_transformer.quantiles_[available_quantile_indices, col_qt_idx] = new_quantiles
                 else:
                     qt_transformer.quantiles_[available_quantile_indices, col_qt_idx] = col_remaining_values
                 qt_transformer.quantiles_[:, col_qt_idx] = np.sort(qt_transformer.quantiles_[:, col_qt_idx])
