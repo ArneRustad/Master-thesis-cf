@@ -26,7 +26,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 max_quantile_share_vec = np.round(np.arange(0.3, 1.01, 0.05), 2).tolist()
-n_synthetic_datasets_max_quantile_share_comparison = 25
+n_synthetic_datasets_max_quantile_share_comparison = 100
 n_epochs_max_quantile_share = 100
 
 def create_tabGAN_for_max_quantile_share(max_quantile_share):

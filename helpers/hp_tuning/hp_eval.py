@@ -5,12 +5,15 @@ from helpers.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 import pandas as pd
 import numpy as np
 from matplotlib.lines import Line2D
+import warnings
 
 
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
                                             save_dir=None, save_path=None, figsize=[14, 8], legend_pos=None,
-                                            plot_sd=True, plot_separate=False, subfolder=None,
+                                            plot_separate=False, subfolder=None,
+                                            plot_observations=False, plot_observation_marker="x", plot_sd=True,
                                             hyperparams_name="hyperparam",
+                                            label_x_axis=None,
                                             hyperparams_subname=None,
                                             x_scale="linear",
                                             incl_comparison_folder=True,
@@ -82,6 +85,14 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
     if n_hyperparams > 3:
         raise ValueError("Method not yet implemented for tuning more than three hyperparameters simultaneously")
 
+    if plot_observations and n_hyperparams > 1:
+        warnings.warn("plot_observations is not yet implemented for more than one hyperparameter. This parameter will therefore be ignored")
+
+    if label_x_axis is None:
+        if n_hyperparams == 1:
+            label_x_axis = hyperparams_name
+        elif hyperparams_subname is not None:
+            label_x_axis = hyperparams_subname[0]
 
     subfolders = [f"{hyperparams_name}{hyperparams}" for hyperparams in hyperparams_abbreviation_vec]
     if allow_not_complete_hp_vec:
@@ -100,6 +111,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         models = subfolders
         result = pd.DataFrame({"Hyperparameters": models, "Accuracy": 0, "AUC": 0, "SD Accuracy": 0, "SD AUC": 0})
         accuracy, auc, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
+
+        if plot_observations:
+            accuracy_obs = np.empty((len(subfolders), n_synthetic_datasets))
+            auc_obs = np.empty((len(subfolders), n_synthetic_datasets))
 
         for i, subfolder in enumerate(subfolders):
             accuracy_vec = np.zeros(n_synthetic_datasets)
@@ -120,6 +135,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 accuracy_vec[j] = eval_result[0]
                 auc_vec[j] = eval_result[1]
                 pbar.update(1)
+            if plot_observations:
+                accuracy_obs[i, :] = accuracy_vec
+                auc_obs[i, :] = auc_vec
             accuracy = np.mean(accuracy_vec)
             auc = np.mean(auc_vec)
             accuracy_std = np.std(accuracy_vec)
@@ -200,28 +218,25 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         else:
             fig, ax = plt.subplots(1, figsize=figsize)
             ax_accuracy = ax_auc = ax
-        ax_accuracy.set_xscale(x_scale)
-        ax_auc.set_xscale(x_scale)
         color_accuracy = next(ax_accuracy._get_lines.prop_cycler)['color']
         color_auc = next(ax_auc._get_lines.prop_cycler)['color']
-        ax_accuracy.plot(hyperparams_vec, result["Accuracy"], label="Accuracy", color=color_accuracy, marker="o")
-        if plot_sd:
-            ax_accuracy.fill_between(hyperparams_vec, result["Accuracy"] - result["SD Accuracy"],
-                             result["Accuracy"] + result["SD Accuracy"], label=r"Accuracy $\pm$ SD Accuracy", alpha=0.5,
-                             color=color_accuracy)
-        ax_auc.plot(hyperparams_vec, result["AUC"], label="AUC", color=color_auc, marker="o")
-        if plot_sd:
-            ax_auc.fill_between(hyperparams_vec, result["AUC"] - result["SD AUC"], result["AUC"] + result["SD AUC"],
-                             label=r"AUC $\pm$ SD AUC", alpha=0.5, color=color_auc)
-        ax_accuracy.legend(loc=legend_pos)
-        ax_auc.legend(loc=legend_pos)
+
+        for ax, metric, col in zip([ax_accuracy, ax_auc], ["Accuracy", "AUC"], [color_accuracy, color_auc]):
+            ax.set_xscale(x_scale)
+            ax.set_xlabel(label_x_axis)
+            ax.plot(hyperparams_vec, result[metric], label=metric, color=col, marker="o")
+            if plot_sd:
+                ax.fill_between(hyperparams_vec, result[metric] - result["SD " + metric],
+                                result[metric] + result["SD " + metric], label=fr"{metric} $\pm$ SD {metric}",
+                                alpha=0.5, color=color_accuracy)
+            ax.legend(loc=legend_pos)
         if not save_path is None:
             if not save_dir is None:
                 save_path = os.path.join(save_dir, save_path)
             fig.savefig(save_path)
 
         if result_table_split_hps and hyperparams_name is not None:
-            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_name)
+            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
             result_split_hps = pd.concat((
                 result_split_hps,
                 result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
