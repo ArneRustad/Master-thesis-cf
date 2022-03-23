@@ -718,7 +718,8 @@ class TabGAN:
 
     def get_numpy_data_batch_real_func(self, n_batch):
         ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
-        return [self.data_num_scaed_cast[ix], self.data_discrete_oh_cast[ix]]
+
+        return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
 
     def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
               plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",

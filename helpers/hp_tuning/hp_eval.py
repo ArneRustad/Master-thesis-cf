@@ -101,9 +101,16 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         warnings.warn("plot_observations is not yet implemented for more than one hyperparameter. This parameter will therefore be ignored")
 
     plot_types_implemented = ["line", "bar"]
-    if plot_type not in plot_types_implemented:
-        raise ValueError("The parameter plot_type is only implemented for the following types: "+plot_types_implemented)
-
+    if plot_type == "line":
+            plot = lambda ax, *args, **kwargs: ax.plot(*args, **kwargs)
+    elif plot_type == "bar":
+        def plot(ax, *args, **kwargs):
+            kwargs.pop("marker", None)
+            ax.bar(*args, **kwargs)
+    else:
+        if plot_type not in plot_types_implemented:
+            raise ValueError("The parameter plot_type is only implemented for the following types: "
+                             "'line', 'bar'")
     if label_x_axis is None:
         if n_hyperparams == 1:
             label_x_axis = hyperparams_name.replace("_", " ").capitalize()
@@ -180,7 +187,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
                 curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
                 for j, ax in enumerate(axes):
-                    ax.plot(curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
                             label=labels_vec[i],
                             color=curr_color, marker="o")
             plt.plot()
@@ -202,7 +209,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                     curr_linestyle = linestyle[0]
 
                 for j, ax in enumerate(axes):
-                    ax.plot(curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
                             label=curr_hp_sub_combs,
                             color=color_dict[curr_hp_sub_combs[0]],
                             linestyle=curr_linestyle,
@@ -210,6 +217,11 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
             ax.set_title(axis_names[i])
+
+            if bool_x_axis:
+                ax.set_xticks([0, 1])
+                ax.set_xticklabels(["False", "True"])
+
             if separate_legends and not only_separate_by_color:
                 custom_lines_color = [Line2D([0], [0], color=color)
                                      for color in color_dict.values()]
@@ -240,10 +252,6 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             fig, ax = plt.subplots(1, figsize=figsize)
             ax_accuracy = ax_auc = ax
 
-        if plot_type == "line":
-            plot = lambda ax, *args, **kwargs: ax.plot(*args, **kwargs)
-        elif plot_type == "bar":
-            plot = lambda ax, *args, **kwargs: ax.bar(*args, **kwargs)
         color_accuracy = next(ax_accuracy._get_lines.prop_cycler)['color']
         color_auc = next(ax_auc._get_lines.prop_cycler)['color']
 
