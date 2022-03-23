@@ -13,7 +13,6 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             plot_separate=False, subfolder=None,
                                             plot_observations=False, plot_observation_marker="x", plot_sd=True,
                                             hyperparams_name="hyperparam",
-                                            label_x_axis=None,
                                             hyperparams_subname=None,
                                             x_scale="linear",
                                             incl_comparison_folder=True,
@@ -22,6 +21,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             only_separate_by_color=False,
                                             separate_legends=False,
                                             result_table_split_hps=False,
+                                            label_x_axis=None,
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False):
@@ -65,6 +65,16 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         else:
             legend_pos = "best"
 
+    if legend_title is None and hyperparams_subname is not None:
+        if n_hyperparams == 2:
+            legend_title = fr"{hyperparams_subname[1].replace('_', ' ').capitalize()} $=$"
+            if only_separate_by_color is None:
+                legend_title = [legend_title]
+        elif only_separate_by_color:
+            legend_title = fr"({', '.join(s.replace('_', ' ').capitalize() for s in hyperparams_subname[1:])}) $=$"
+        else:
+            legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname]
+
     # Asserting valid input parameters (not yet complete)
     if n_hyperparams > 1:
         if (not only_separate_by_color) and separate_legends:
@@ -90,9 +100,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
     if label_x_axis is None:
         if n_hyperparams == 1:
-            label_x_axis = hyperparams_name
+            label_x_axis = hyperparams_name.replace("_", " ").capitalize()
         elif hyperparams_subname is not None:
-            label_x_axis = hyperparams_subname[0]
+            label_x_axis = hyperparams_subname[0].replace("_", " ").capitalize()
 
     subfolders = [f"{hyperparams_name}{hyperparams}" for hyperparams in hyperparams_abbreviation_vec]
     if allow_not_complete_hp_vec:
@@ -143,6 +153,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             accuracy_std = np.std(accuracy_vec)
             auc_std = np.std(auc_vec)
             result.iloc[i, 1:] = [accuracy, auc, accuracy_std, auc_std]
+
+    if plot_observations:
+        obs_metric_dict = {"Accuracy": accuracy_obs, "AUC": auc_obs}
     if combined_hp_tuning:
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         axis_names = ["Accuracy", "AUC"]
@@ -170,21 +183,23 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             color_dict = {hp_sub1: next(axes[0]._get_lines.prop_cycler)['color']
                           for hp_sub1 in np.unique(hp_sub_vecs[0,])}
             linestyles = ['-', '--', ':', '-.']
-            print(hp_sub_vecs)
             if hp_sub_vecs.shape[0] >= 2:
                 linestyle_dict = {hp_sub2: linestyle
                                   for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
-            else:
-                linestyle_dict = {hp_sub2 : linestyles[0] for hp_sub2 in np.unique(hp_sub_vecs[0, ])}
             for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
                 curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
+
+                if hp_sub_vecs.shape[0] >= 2:
+                    curr_linestyle = linestyle_dict[curr_hp_sub_combs[1]]
+                else:
+                    curr_linestyle = linestyle[0]
 
                 for j, ax in enumerate(axes):
                     ax.plot(curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
                             label=curr_hp_sub_combs,
                             color=color_dict[curr_hp_sub_combs[0]],
-                            linestyle=linestyle_dict[curr_hp_sub_combs[1]],
+                            linestyle=curr_linestyle,
                             marker="o")
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
@@ -225,6 +240,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             ax.set_xscale(x_scale)
             ax.set_xlabel(label_x_axis)
             ax.plot(hyperparams_vec, result[metric], label=metric, color=col, marker="o")
+            if plot_observations:
+                ax.scatter(np.repeat(hyperparams_vec, n_synthetic_datasets), obs_metric_dict[metric].flatten(),
+                           label=metric + " obs", color=col, marker=plot_observation_marker)
             if plot_sd:
                 ax.fill_between(hyperparams_vec, result[metric] - result["SD " + metric],
                                 result[metric] + result["SD " + metric], label=fr"{metric} $\pm$ SD {metric}",

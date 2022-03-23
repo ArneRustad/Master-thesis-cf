@@ -29,9 +29,9 @@ class TabGAN:
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
-                 n_quantiles_int=1000, n_quantile_subsample=1e5,
-                 quantile_rand_transformation=True, qtr_spread=0.4,
-                 qtr_lbound_apply=0.05,
+                 n_quantiles_int=1000, qt_n_subsample=1e5,
+                 quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
+                 ctgan=False, ctgan_log_frequency=True,
                  leaky_relu_alpha=0.3, add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
@@ -39,7 +39,7 @@ class TabGAN:
                  adam_amsgrad=False, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
-                 noise_discrete_unif_max=0, use_query=False,
+                 noise_discrete_unif_max=0, use_query=None,
                  tf_data_use=True, tf_data_shuffle=True, tf_data_prefetch=True, tf_data_cache=False,
                  tf_make_graph=True, tf_make_critic_step_graph=None, tf_make_gen_step_graph=None,
                  tf_make_train_step_graph=None, tf_make_numpy_data_step_graph=None,
@@ -48,6 +48,8 @@ class TabGAN:
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
         # Create variable defaults if needed
+        if use_query is None:
+            use_query = True if ctgan else False
         if n_hidden_generator_layers is None:
             n_hidden_generator_layers = n_hidden_layers
         if n_hidden_critic_layers is None:
@@ -93,6 +95,10 @@ class TabGAN:
             dropout_rate_critic = dropout_rate
         if dropout_rate_generator is None:
             dropout_rate_generator = dropout_rate
+
+        # Assert
+        assert not (ctgan and not use_query)
+
         # Initialize variables
         self.data = data
         self.columns = data.columns
@@ -128,10 +134,12 @@ class TabGAN:
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
         self.n_quantiles_int = n_quantiles_int
-        self.n_quantiles_subsample = n_quantile_subsample
+        self.qt_n_subsample = qt_n_subsample
         self.initialized_gan = False
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
+        self.ctgan = ctgan
+        self.ctgan_log_frequency = ctgan_log_frequency
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
         self.add_dropout_generator = add_dropout_generator
@@ -170,7 +178,9 @@ class TabGAN:
         self.columns_float = self.columns_num[np.logical_not(self.columns_num_int_mask)]
         if self.quantile_transformation_int:
             self.scaler_num = ColumnTransformer(transformers=[("float", StandardScaler(), self.columns_float), (
-            "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution='normal'), self.columns_int)])
+            "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution='normal',
+                                       subsample=self.qt_n_subsample),
+            self.columns_int)])
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
 
             if self.max_quantile_share < 1:
@@ -195,6 +205,10 @@ class TabGAN:
         self.oh_encoder = OneHotEncoder(sparse=False)
         self.data_discrete_oh = self.oh_encoder.fit_transform(self.data_discrete)
         self.n_columns_discrete_oh = self.data_discrete_oh.shape[1]
+
+        # Store number of categories for each discrete column
+        self.column_discrete_n_cats = [len(col_cat_vec) for col_cat_vec in self.oh_encoder.categories_]
+        self.column_discrete_n_cats_cumulative = np.cumsum(self.column_discrete_n_cats)
         if self.noise_discrete_unif_max > 0:
             noise_discrete = np.random.uniform(low = 0, high = self.noise_discrete_unif_max,
                                               size = self.data_discrete_oh.shape)
@@ -244,6 +258,32 @@ class TabGAN:
             self.data_processed = None
             self.data_processed_iter = None
 
+        if self.ctgan:
+            self.query_probs = np.empty(shape=(self.n_columns_discrete_oh), dtype=np.float32)
+            self.query_original_probs = np.empty(shape=(self.n_columns_discrete_oh), dtype=np.float32)
+            start_idx = 0
+            for i, col_discrete in enumerate(self.columns_discrete):
+                end_idx = self.column_discrete_n_cats_cumulative[i]
+                category_freq = np.sum(self.data_discrete_oh[:, start_idx:end_idx], axis=0)
+                self.query_original_probs[start_idx:end_idx] = category_freq / np.sum(category_freq)
+                if self.ctgan_log_frequency:
+                    category_freq = np.log(1 + category_freq)
+                self.query_probs[start_idx:end_idx] = category_freq / np.sum(category_freq)
+                start_idx = end_idx
+            self.query_original_probs /= self.n_columns_discrete
+            self.query_probs /= self.n_columns_discrete
+            self.queries_all = np.identity(self.n_columns_discrete_oh, dtype=np.float32)
+
+            self.map_query_id_to_indices_list = {}
+            self.map_query_id_to_n_indices = np.empty(shape=self.n_columns_discrete_oh, dtype=np.float32)
+            for i in range(self.n_columns_discrete_oh):
+                curr_indices = np.flatnonzero(self.data_discrete_oh[:, i])
+                self.map_query_id_to_indices_list[i] = curr_indices
+                self.map_query_id_to_n_indices[i] = curr_indices.shape[0]
+
+            self.map_query_id_and_indices_idx_to_obs_idx = np.vectorize(
+                lambda query_id, indices_idx: self.map_query_id_to_indices_list[query_id][indices_idx]
+            )
 
     def initialize_gan(self, tf_make_graph=True):
         """
@@ -403,32 +443,59 @@ class TabGAN:
             data_int = None
         return (pd.concat([data_float, data_int, data_discrete], axis=1)[self.columns])
 
-    def generate_queries(self, n):
+    def generate_queries(self, n, ret_query_id=False, original_probs=True):
         """
-        Currently a dummy function for generating queries. Query functionality is not yet implemented
+        Generate n queries. Implemented for ctgan parameter. Else a dummy function
         """
-        return tf.zeros([n, self.n_columns_discrete_oh])
+        if self.ctgan:
+            if original_probs:
+                query_ids = np.random.choice(self.queries_all.shape[0], size=n, replace=True,
+                                             p=self.query_original_probs)
+            else:
+                query_ids = np.random.choice(self.queries_all.shape[0], size=n, replace=True,
+                                             p=self.query_probs)
+            if ret_query_id:
+                return self.queries_all[query_ids, :], query_ids
+            else:
+                return self.queries_all[query_ids, :]
+        # Return a dummy query consisting of only zeros
+        else:
+            return tf.zeros([n, self.n_columns_discrete_oh])
 
-    def generate_dataset(self, n=None):
+    def get_numpy_data_batch_real_from_queries(self, query_ids):
+        u = np.random.uniform(low=0, high=1, size=query_ids.shape[0])
+        indices_idx = np.round(u * (self.map_query_id_to_n_indices[query_ids] - 1)).astype(np.int)
+        idx = self.map_query_id_and_indices_idx_to_obs_idx(query_ids, indices_idx)
+        return [self.data_num_scaled_cast[idx], self.data_discrete_oh_cast[idx]]
+
+    def sample(self, n=None):
         """
         Function for generating data using the data synthesizer
         """
         if n is None:
             n = self.nrow
         noise = self.generate_latent(n)
-        #queries = self.generate_queries(n)
-        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(noise)
+        if self.use_query:
+            queries = self.generate_queries(n, original_probs=True)
+            gen_input = [noise, queries]
+        else:
+            gen_input = [noise]
+        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(gen_input)
         return self.inv_data_transform(gen_data_num_scaled, gen_data_discrete_oh)
 
-    def generate_dataset_scaled(self, n=None):
+    def sample_scaled(self, n=None):
         """
         Function for generating data directly from the generator without inverting any transformations. Mostly used for debugging.
         """
         if (n == None):
             n = self.nrow
         noise = self.generate_latent(n)
-        #queries = self.generate_queries(n)
-        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(noise)
+        if self.add_query:
+            queries = self.generate_queries(n, original_probs=True)
+            gen_input = [noise, queries]
+        else:
+            gen_input = [noise]
+        gen_data_num_scaled, gen_data_discrete_oh = self.generator.predict(gen_input)
         columns_discrete_oh = []
         for i, col in enumerate(self.columns_discrete):
             for category in self.oh_encoder.categories_[i]:
@@ -444,7 +511,11 @@ class TabGAN:
         input_numeric = Input(shape=(self.n_columns_num), name="Numeric_input")
         input_discrete = Input(shape=(self.n_columns_discrete_oh), name="Discrete_input")
         if self.use_query:
-            query = Input(shape=(self.n_columns_discrete_oh), name="Query")
+            if self.ctgan:
+                size_query = self.n_columns_discrete_oh
+            else:
+                raise ValueError("Currently ctgan is the only submethod of tabGAN implemented using query")
+            query = Input(shape=(size_query), name="Query")
             combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
             inputs = [input_numeric, input_discrete, query]
         else:
@@ -472,7 +543,11 @@ class TabGAN:
 
         latent = Input(shape=(self.dim_latent), name="Latent")
         if self.use_query:
-            query = Input(shape=(self.n_columns_discrete_oh), name="Query")
+            if self.ctgan:
+                size_query = self.n_columns_discrete_oh
+            else:
+                raise ValueError("Currently ctgan is the only submethod of tabGAN implemented using query")
+            query = Input(shape=(size_query), name="Query")
             combined1 = concatenate([latent, query], name="Concatenate_input")
             inputs = [latent, query]
         else:
@@ -523,7 +598,10 @@ class TabGAN:
         """
         Internal function for generating latent noise as input for generator
         """
-        return tf.random.normal([n, self.dim_latent])
+        if self.ctgan:
+            return tf.random.normal([n, self.dim_latent])
+        else:
+            return tf.random.normal([n, self.dim_latent])
 
     def gumbel_softmax(self, logits):
         """
@@ -537,44 +615,53 @@ class TabGAN:
         """
         for i in range(self.n_critic):
             #data_batch_real = self.get_data_batch_real()
-            if self.tf_data_use:
-                data_batch_real = next(self.data_processed_iter)
+            if self.ctgan:
+                queries, query_ids = self.generate_queries(n_batch, ret_query_id=True, original_probs=False)
+                data_batch_real = self.get_numpy_data_batch_real_from_queries(query_ids)
+                self.train_step_critic(data_batch_real, n_batch, queries=queries)
             else:
-                # ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
-                # data_batch_real = [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
-                data_batch_real = self.get_numpy_data_batch_real(n_batch)
-            self.train_step_critic(data_batch_real, n_batch)
+                if self.tf_data_use:
+                    data_batch_real = next(self.data_processed_iter)
+                else:
+                    # ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
+                    # data_batch_real = [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
+                    data_batch_real = self.get_numpy_data_batch_real(n_batch)
+                self.train_step_critic(data_batch_real, n_batch)
 
         em_distance = self.compute_em_distance()
 
         loss_gen = self.train_step_generator(n_batch)
-
         return em_distance, loss_gen
 
-    def train_step_critic(self, data_batch_real, n_batch):
-        #noise = self.generate_latent(n_batch)
-        #data_batch_gen = self.generator([noise], training=True)
-        return None
 
-    def train_step_critic_func(self, data_batch_real, n_batch):
+    def train_step_critic_func(self, data_batch_real, n_batch, queries=None):
         noise = self.generate_latent(n_batch)
-        data_batch_gen = self.generator([noise], training=True)
+        noise_and_query = [noise, queries] if self.use_query else noise
+        data_batch_gen = self.generator(noise_and_query, training=True)
 
         with tf.GradientTape() as discr_tape:
-            output_discr_real = self.critic(data_batch_real, training=True)
-            output_discr_fake = self.critic(data_batch_gen, training=True)
+            output_discr_real = self.critic(
+                [data_batch_real[0], data_batch_real[1], queries] if self.use_query else data_batch_real,
+                training=True
+            )
+            output_discr_fake = self.critic(
+                [data_batch_gen[0], data_batch_gen[1], queries] if self.use_query else data_batch_gen,
+                training=True
+            )
             loss_discr = - tf.reduce_mean(output_discr_real) + tf.reduce_mean(output_discr_fake)
 
             epsilon = tf.random.uniform([n_batch, 1])
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
+            if self.use_query:
+                combined_data = [combined_data_num, combined_data_discrete, queries]
+            else:
+                combined_data = [combined_data_num, combined_data_discrete]
 
             with tf.GradientTape() as discr_tape_comb:
-                discr_tape_comb.watch(combined_data_num)
-                discr_tape_comb.watch(combined_data_discrete)
-                loss_discr_combined = self.critic([combined_data_num, combined_data_discrete], training=True)
-            combined_gradients = discr_tape_comb.gradient(loss_discr_combined,
-                                                          [combined_data_num, combined_data_discrete])
+                discr_tape_comb.watch(combined_data)
+                loss_discr_combined = self.critic(combined_data, training=True)
+            combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data)
             combined_gradients = tf.concat(combined_gradients, axis=1)
 
             loss_discr_gradients = self.wgan_lambda * tf.reduce_mean((tf.norm(combined_gradients, axis=1) - 1) ** 2)
@@ -588,18 +675,37 @@ class TabGAN:
 
     def compute_em_distance_func(self):
         noise = self.generate_latent(self.data.shape[0])
-        gen_data_num, gen_data_discrete = self.generator([noise], training=True)
-        output_discr_real = self.critic([self.data_num_scaled, self.data_discrete_oh], training=True)
-        output_discr_fake = self.critic([gen_data_num, gen_data_discrete], training=True)
+        if self.use_query:
+            queries = self.generate_queries(self.data.shape[0], original_probs=True)
+            noise_and_queries = [noise, queries]
+        else:
+            noise_and_queries = noise
+        gen_data_num, gen_data_discrete = self.generator(noise_and_queries, training=True)
+        output_discr_real = self.critic(
+            [self.data_num_scaled, self.data_discrete_oh, queries] if self.use_query
+            else [self.data_num_scaled, self.data_discrete_oh], training=True)
+        output_discr_fake = self.critic(
+            [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
+            training=True)
         em_distance = tf.reduce_mean(output_discr_real) - tf.reduce_mean(output_discr_fake)
         return em_distance
 
     def train_step_generator_func(self, n_batch):
         noise = self.generate_latent(n_batch)
+        if self.use_query:
+            queries = self.generate_queries(n_batch, original_probs=True)
+            noise_and_queries = [noise, queries]
+        else:
+            noise_and_queries = noise
         with tf.GradientTape() as gen_tape:
-            gen_data_num, gen_data_discrete = self.generator([noise], training=True)
+            gen_data_num, gen_data_discrete = self.generator(
+                [noise, queries] if self.use_query else noise, training=True
+            )
             loss_gen = - tf.reduce_mean(
-                self.critic([gen_data_num, gen_data_discrete], training=True))
+                self.critic(
+                    [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
+                    training=True)
+            )
 
         gradients_of_generator = gen_tape.gradient(loss_gen, self.generator.trainable_variables)
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
@@ -612,7 +718,7 @@ class TabGAN:
 
     def get_numpy_data_batch_real_func(self, n_batch):
         ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
-        return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
+        return [self.data_num_scaed_cast[ix], self.data_discrete_oh_cast[ix]]
 
     def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
               plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
