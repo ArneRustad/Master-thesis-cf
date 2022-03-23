@@ -18,10 +18,12 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             incl_comparison_folder=True,
                                             allow_not_complete_hp_vec=False,
                                             legend_title=None,
+                                            plot_type="line",
                                             only_separate_by_color=False,
                                             separate_legends=False,
                                             result_table_split_hps=False,
                                             label_x_axis=None,
+                                            bool_x_axis=False,
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False):
@@ -97,6 +99,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
     if plot_observations and n_hyperparams > 1:
         warnings.warn("plot_observations is not yet implemented for more than one hyperparameter. This parameter will therefore be ignored")
+
+    plot_types_implemented = ["line", "bar"]
+    if plot_type not in plot_types_implemented:
+        raise ValueError("The parameter plot_type is only implemented for the following types: "+plot_types_implemented)
 
     if label_x_axis is None:
         if n_hyperparams == 1:
@@ -233,13 +239,18 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         else:
             fig, ax = plt.subplots(1, figsize=figsize)
             ax_accuracy = ax_auc = ax
+
+        if plot_type == "line":
+            plot = lambda ax, *args, **kwargs: ax.plot(*args, **kwargs)
+        elif plot_type == "bar":
+            plot = lambda ax, *args, **kwargs: ax.bar(*args, **kwargs)
         color_accuracy = next(ax_accuracy._get_lines.prop_cycler)['color']
         color_auc = next(ax_auc._get_lines.prop_cycler)['color']
 
         for ax, metric, col in zip([ax_accuracy, ax_auc], ["Accuracy", "AUC"], [color_accuracy, color_auc]):
             ax.set_xscale(x_scale)
             ax.set_xlabel(label_x_axis)
-            ax.plot(hyperparams_vec, result[metric], label=metric, color=col, marker="o")
+            plot(ax, hyperparams_vec, result[metric], label=metric, color=col, marker="o")
             if plot_observations:
                 ax.scatter(np.repeat(hyperparams_vec, n_synthetic_datasets), obs_metric_dict[metric].flatten(),
                            label=metric + " obs", color=col, marker=plot_observation_marker)
@@ -247,6 +258,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 ax.fill_between(hyperparams_vec, result[metric] - result["SD " + metric],
                                 result[metric] + result["SD " + metric], label=fr"{metric} $\pm$ SD {metric}",
                                 alpha=0.5, color=color_accuracy)
+            if bool_x_axis:
+                print("hei")
+                ax.set_xticks([0, 1], ["False", "True"])
             ax.legend(loc=legend_pos)
         if not save_path is None:
             if not save_dir is None:
