@@ -25,29 +25,30 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-max_quantile_share_vec = np.round(np.arange(0.3, 1.01, 0.05), 2).tolist()
-n_synthetic_datasets_max_quantile_share_comparison = 100
-n_epochs_max_quantile_share = 100
+ctgan_vec = [(False, False), (True, False), (False, True)]
+n_synthetic_datasets_ctgan_comparison = 10
+n_epochs_ctgan = 100
 
-def create_tabGAN_for_max_quantile_share(max_quantile_share):
+def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    max_quantile_share=max_quantile_share)
+                    noise_discrete_unif_max = noise_discrete_unif_max, tf_data_use=False,
+                    ctgan=ctgan, ctgan_log_frequency=ctgan_log_frequency)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_max_quantile_share,
-    hyperparams_vec=max_quantile_share_vec,
-    n_epochs=n_epochs_max_quantile_share,
+    create_tabGAN_func=create_tabGAN_for_ctgan,
+    hyperparams_vec=ctgan_vec,
+    n_epochs=n_epochs_ctgan,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_max_quantile_share_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_ctgan_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "max_quantile_share",
+    hyperparams_name = "categorical_query",
+    hyperparams_subname=["ctgan", "log_frequency"],
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
