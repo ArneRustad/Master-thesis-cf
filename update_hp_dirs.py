@@ -16,6 +16,7 @@ parser.add_argument("--local", help="Backup Markov on local drive", type=bool, d
 parser.add_argument("--redo", help="If activated, redo copying of all files even if they already exist at destination directory",
                     type=bool, default=False)
 parser.add_argument("--redo_na", help="If activated, redo copying of all datasets containing NA rows even if dataset already exist at destination directory")
+parser.add_argument("--add_rel_path", help="Add relative path to existing paths", type=str, default="")
 
 
 idun_dir = "V:\\hyperparams_tuning"
@@ -26,7 +27,7 @@ cache_dir = "S:\\arneir\\Master-thesis-storage\\python_objects"
 if __name__ == "__main__":
     args = parser.parse_args()
     kwargs = {"filetype": args.filetype, "progress_bar": args.progress_bar, "redo": args.redo, "redo_na": args.redo_na,
-              "verbal": args.verbal, "cache_dir" : cache_dir}
+              "verbal": args.verbal, "cache_dir" : cache_dir, "add_rel_path": args.add_rel_path}
     if args.forwards:
         if args.verbal >= 1:
             print("Transferring files from Idun to Markov")

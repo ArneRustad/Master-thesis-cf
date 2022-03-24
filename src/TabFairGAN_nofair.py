@@ -38,11 +38,6 @@ if args.size_of_fake_data == -1:
 
 
 
-if args.dim_latent_layer == -1:
-    noise_dim = input_dim
-else:
-    noise_dim = args.dim_latent_layer
-
 
 
 
@@ -267,6 +262,8 @@ display_step = 50
 
 def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
     ohe, scaler, input_dim, discrete_columns, continuous_columns, train_dl, data_train, data_test = prepare_data(df, batch_size)
+    if args.dim_latent_layer == -1:
+        args.dim_latent_layer = input_dim
 
     generator = Generator(input_dim, continuous_columns, discrete_columns).to(device)
     critic = Critic(input_dim).to(device)
@@ -299,7 +296,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             for k in range(crit_repeat):
                 # training the critic
                 crit_optimizer.zero_grad()
-                fake_noise = torch.randn(size=(batch_size, noise_dim), device=device).float()
+                fake_noise = torch.randn(size=(batch_size, args.dim_latent_layer), device=device).float()
                 fake = generator(fake_noise)
 
                 crit_fake_pred = critic(fake.detach())
@@ -322,7 +319,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             if i + 1 <= (epochs - fair_epochs):
                 # training the generator for accuracy
                 gen_optimizer.zero_grad()
-                fake_noise_2 = torch.randn(size=(batch_size, noise_dim), device=device).float()
+                fake_noise_2 = torch.randn(size=(batch_size, args.dim_latent_layer), device=device).float()
                 fake_2 = generator(fake_noise_2)
                 crit_fake_pred = critic(fake_2)
 
@@ -336,7 +333,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
             if i + 1 > (epochs - fair_epochs):
                 # training the generator for fairness
                 gen_optimizer_fair.zero_grad()
-                fake_noise_2 = torch.randn(size=(batch_size, noise_dim), device=device).float()
+                fake_noise_2 = torch.randn(size=(batch_size, args.dim_latent_layer), device=device).float()
                 fake_2 = generator(fake_noise_2)
 
                 crit_fake_pred = critic(fake_2)
@@ -391,7 +388,7 @@ def train_plot(df, epochs, batchsize, fair_epochs, lamda):
 
 
 generator, critic, ohe, scaler, data_train, data_test, input_dim = train_plot(df, args.num_epochs, args.batch_size, 0, 0)
-fake_numpy_array = generator(torch.randn(size=(args.size_of_fake_data, noise_dim), device=device)).cpu().detach().numpy()
+fake_numpy_array = generator(torch.randn(size=(args.size_of_fake_data, args.dim_latent_layer), device=device)).cpu().detach().numpy()
 fake_df = get_original_data(fake_numpy_array, df, ohe, scaler)
 fake_df = fake_df[df.columns]
 fake_df.to_csv(args.fake_name, index=False)

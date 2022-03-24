@@ -19,6 +19,8 @@ def generate_multiple_datasets(tabgan, dataset_dir, n_synthetic_datasets, n_epoc
                              progress_bar_desc=f"Progress generating dataset {i+1}")
                 fake_train = tabgan.sample()
                 fake_train.to_csv(current_path, index=False)
+                pbar.update(1)
             else:
-                pass
-            pbar.update(1)
+                pbar.update(1)
+                pbar.refresh()
+

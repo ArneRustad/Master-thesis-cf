@@ -39,7 +39,12 @@ def check_for_na_row(path, dir="", filetypes_allowed=[".csv"]):
     return False
 
 def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=True, redo=False, redo_na=False,
-                                   cache_dir="", cache_name="file_transfer_active_path.pkl", verbal=1):
+                                   cache_dir="", cache_name="file_transfer_active_path.pkl", verbal=1,
+                                   add_rel_path=""):
+    if add_rel_path:
+        src_dir = os.path.join(src_dir, add_rel_path)
+        dst_dir = os.path.join(dst_dir, add_rel_path)
+
     # Check if unresolved copy from last transfer
     assert cache_name[-4:] == ".pkl"
     if verbal >= 1:

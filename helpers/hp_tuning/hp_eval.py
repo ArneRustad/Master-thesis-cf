@@ -200,9 +200,14 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             color_dict = {hp_sub1: next(axes[0]._get_lines.prop_cycler)['color']
                           for hp_sub1 in np.unique(hp_sub_vecs[0,])}
             linestyles = ['-', '--', ':', '-.']
+            linestyles = linestyles[:min(np.unique(hp_sub_vecs[2]).shape[0], len(linestyles))]
+            linewidths = np.linspace(1, 2, np.unique(hp_sub_vecs[2]).shape[0])
             if hp_sub_vecs.shape[0] >= 2:
                 linestyle_dict = {hp_sub2: linestyle
                                   for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
+            if hp_sub_vecs.shape[0] >= 3:
+                linewidth_dict = {hpsub3: linewidth
+                                  for hp_sub3, linewidth in zip(np.unique(hp_sub_vecs[2,]), linewidths)}
             for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
                 curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
@@ -212,12 +217,18 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 else:
                     curr_linestyle = linestyle[0]
 
+                if hp_sub_vecs.shape[0] >= 3:
+                    curr_linewidth = linewidth_dict[curr_hp_sub_combs[2]]
+                else:
+                    curr_linewidth = 1.5
+
                 for j, ax in enumerate(axes):
                     plot(ax, curr_hp_main_vec, result.loc[curr_rows, metric_list[j]],
-                            label=curr_hp_sub_combs,
-                            color=color_dict[curr_hp_sub_combs[0]],
-                            linestyle=curr_linestyle,
-                            marker="o")
+                         label=curr_hp_sub_combs,
+                         color=color_dict[curr_hp_sub_combs[0]],
+                         linestyle=curr_linestyle,
+                         linewidth=curr_linewidth,
+                         marker="o")
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
             ax.set_title(metric_list[i])
