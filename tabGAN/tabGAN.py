@@ -39,7 +39,7 @@ class TabGAN:
                  adam_amsgrad=False, sgd_nesterov=False,
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
-                 noise_discrete_unif_max=0, use_query=None,
+                 noise_discrete_unif_max=0, use_query=None, np_data_fix=False,
                  tf_data_use=True, tf_data_shuffle=True, tf_data_prefetch=True, tf_data_cache=False,
                  tf_make_graph=True, tf_make_critic_step_graph=None, tf_make_gen_step_graph=None,
                  tf_make_train_step_graph=None, tf_make_numpy_data_step_graph=None,
@@ -152,6 +152,7 @@ class TabGAN:
         self.tf_data_shuffle = tf_data_shuffle
         self.tf_data_prefetch = tf_data_prefetch
         self.tf_data_cache = tf_data_cache
+        self.np_data_fix = np_data_fix
         self.tf_make_graph = tf_make_graph
         self.tf_make_critic_step_graph = tf_make_critic_step_graph
         self.tf_make_gen_step_graph = tf_make_gen_step_graph
@@ -167,6 +168,9 @@ class TabGAN:
         self.jit_compile_em_distance = jit_compile_em_distance
         self.jit_compile_arg_func = None # Will be initialized later depending on tensorflow version being less than 2.5 or above
         self.default_epochs_to_train = default_epochs_to_train
+
+        self.np_ix_start = 0
+        self.np_ix_list = np.array([], dtype=np.int)
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -717,8 +721,17 @@ class TabGAN:
         return next(self.data_processed_iter)
 
     def get_numpy_data_batch_real_func(self, n_batch):
-        ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
+        if self.np_data_fix:
+            if self.np_ix_start > self.np_ix_list.shape[0] - n_batch:
+                self.np_ix_list = np.concatenate((self.np_ix_list[self.np_ix_start:],
+                                                  np.random.choice(self.data.shape[0], size=self.data.shape[0],
+                                                                   replace=False)),
+                                                 axis=0)
+                self.np_ix_start = 0
 
+            ix = self.np_ix_list[self.np_ix_start:(self.np_ix_start + n_batch)]
+        else:
+            ix = np.random.randint(low=0, high=self.data.shape[0], size=n_batch)
         return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
 
     def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,

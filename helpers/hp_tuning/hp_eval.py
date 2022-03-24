@@ -26,7 +26,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             bool_x_axis=False,
                                             drop_na=False,
                                             report_na=None,
-                                            print_csv_file_paths=False):
+                                            print_csv_file_paths=False,
+                                            remove_unnamed_cols=True):
     if report_na is None:
         report_na=drop_na
 
@@ -147,7 +148,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 path = os.path.join(curr_dataset_dir, f"gen{j}.csv")
                 if print_csv_file_paths:
                     print(path)
-                fake_train = pd.read_csv(path, index_col=0)
+                fake_train = pd.read_csv(path)
+                if remove_unnamed_cols:
+                    unnamed_columns_bool = fake_train.columns.str.contains("Unnamed: ")
+                    fake_train = fake_train.loc[:, np.logical_not(unnamed_columns_bool)]
                 if (report_na or drop_na) and (fake_train.isna().sum().sum() > 0):
                     fake_train_wo_nan = fake_train.dropna()
                     if report_na:
@@ -171,7 +175,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         obs_metric_dict = {"Accuracy": accuracy_obs, "AUC": auc_obs}
     if combined_hp_tuning:
         fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
-        axis_names = ["Accuracy", "AUC"]
+        metric_list = ["Accuracy", "AUC"]
         hp_main_vec = [hp_comb[0] for hp_comb in hyperparams_vec]
         hp_sub_combs_vec = [tuple(hp_comb[i] for i in range(len(hp_comb)) if i != 0) for hp_comb in hyperparams_vec]
         hp_unique_sub_combs_vec = sorted(set(hp_sub_combs_vec))
@@ -187,7 +191,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
                 curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
                 for j, ax in enumerate(axes):
-                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, metric_list[j]],
                             label=labels_vec[i],
                             color=curr_color, marker="o")
             plt.plot()
@@ -209,14 +213,14 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                     curr_linestyle = linestyle[0]
 
                 for j, ax in enumerate(axes):
-                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, axis_names[j]],
+                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, metric_list[j]],
                             label=curr_hp_sub_combs,
                             color=color_dict[curr_hp_sub_combs[0]],
                             linestyle=curr_linestyle,
                             marker="o")
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
-            ax.set_title(axis_names[i])
+            ax.set_title(metric_list[i])
 
             if bool_x_axis:
                 ax.set_xticks([0, 1])
@@ -269,6 +273,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if bool_x_axis:
                 print("hei")
                 ax.set_xticks([0, 1], ["False", "True"])
+            if plot_separate:
+                ax.set_ylabel(metric)
             ax.legend(loc=legend_pos)
         if not save_path is None:
             if not save_dir is None:

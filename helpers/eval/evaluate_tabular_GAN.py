@@ -6,7 +6,8 @@ import os
 
 def eval_tabular_GAN_ml_efficacy(data_train, data_test, dataset_dir, subfolders, n_synthetic_datasets,
                                        name_true_train_dataset = "Train dataset",
-                                       eval_sd_true_dataset = False, print_all_accuracy = False):
+                                       eval_sd_true_dataset = False, print_all_accuracy = False,
+                                 remove_unnamed_cols=True):
     progress_bar_total = len(subfolders)*n_synthetic_datasets + (n_synthetic_datasets if eval_sd_true_dataset else 1)
     with tqdm(total=progress_bar_total) as pbar:
         models = [name_true_train_dataset] + subfolders
@@ -37,7 +38,10 @@ def eval_tabular_GAN_ml_efficacy(data_train, data_test, dataset_dir, subfolders,
             curr_dataset_dir = os.path.join(dataset_dir, subfolder)
             for j in range(n_synthetic_datasets):
                 path = os.path.join(curr_dataset_dir, f"gen{j}.csv")
-                fake_train = pd.read_csv(path, index_col = 0)
+                fake_train = pd.read_csv(path)
+                if remove_unnamed_cols:
+                    unnamed_columns_bool = fake_train.columns.str.contains("Unnamed: ")
+                    fake_train = fake_train.loc[:, np.logical_not(unnamed_columns_bool)]
                 eval_result = fit_and_evaluate_xgboost(fake_train, data_test, categories = categories)
                 accuracy_vec[j] = eval_result[0]
                 auc_vec[j] = eval_result[1]
