@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --partition=GPUQ
-#SBATCH --account=share-ie-imf
+#SBATCH --account=ie-imf #share-ie-imf
 #SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --job-name="hp_tuning"
+#SBATCH --job-name="hp"
 #SBATCH --out=hp_tuning.out
 #SBATCH --error=hp_tuning.err
 #SBATCH --mail-user=<arner97@gmail.com>

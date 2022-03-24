@@ -4,7 +4,7 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --job-name="hp_tuning2"
+#SBATCH --job-name="hp2"
 #SBATCH --out=hp_tuning2.out
 #SBATCH --error=hp_tuning2.err
 #SBATCH --mail-user=<arner97@gmail.com>

@@ -25,30 +25,30 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-ctgan_vec = [(False, False), (True, False), (False, True)]
-n_synthetic_datasets_ctgan_comparison = 10
-n_epochs_ctgan = 100
+real_data_sampling_vec = [(False, False), (False, True), (True, False)]
+n_synthetic_datasets_real_data_sampling_comparison = 10
+n_epochs_real_data_sampling = 100
 
-def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency):
+def create_tabGAN_for_real_data_sampling(tf_data_use, np_data_fix):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max, tf_data_use=False,
-                    ctgan=ctgan, ctgan_log_frequency=ctgan_log_frequency)
+                    noise_discrete_unif_max = noise_discrete_unif_max, tf_data_use=tf_data_use,
+                    np_data_fix=np_data_fix)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_ctgan,
-    hyperparams_vec=ctgan_vec,
-    n_epochs=n_epochs_ctgan,
+    create_tabGAN_func=create_tabGAN_for_real_data_sampling,
+    hyperparams_vec=real_data_sampling_vec,
+    n_epochs=n_epochs_real_data_sampling,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_ctgan_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_real_data_sampling_comparison,
     restart = True,
     redo_hyperparams_vec = [],
     plot_only_new_progress = True,
-    hyperparams_name = "categorical_query",
-    hyperparams_subname=["ctgan", "log_frequency"],
+    hyperparams_name = "real_data_sampling",
+    hyperparams_subname=["tf_data_use", "np_data_fix"],
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
