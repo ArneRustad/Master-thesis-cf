@@ -26,11 +26,11 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 ctgan_vec = [(False, False, False, False)]
-ctgan_vec += [(True, log_freq, bin_loss, add_connection)
-              for log_freq in [False, True]
+ctgan_vec += [(bin_loss, True, log_freq, add_connection)
               for bin_loss in [False, True]
+              for log_freq in [False, True]
               for add_connection in [False, True]]
-n_synthetic_datasets_ctgan_comparison = 10
+n_synthetic_datasets_ctgan_comparison = 25
 n_epochs_ctgan = 100
 
 def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency, ctgan_binomial_loss, add_connection_query_to_discrete):
@@ -47,24 +47,23 @@ def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency, ctgan_binomial_loss, add
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_ctgan,
-    hyperparams_vec=ctgan_vec,
-    n_epochs=n_epochs_ctgan,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_ctgan_comparison,
-    restart = True,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "categorical_query",
-    hyperparams_subname=["ctgan", "log_frequency", "add_connection_query_to_discrete"],
-    add_comparison_folder=True,
-    overwrite_dataset=False,
-    progress_bar_subprocess=True,
-    progress_bar_subsubprocess=progress_bar_subsubprocess
+create_tabGAN_func=create_tabGAN_for_ctgan,
+hyperparams_vec=ctgan_vec,
+n_epochs=n_epochs_ctgan,
+dataset_dir=const.dir.hyperparams_tuning(),
+batch_size=batch_size,
+subfolder="tabGAN-qtr",
+n_synthetic_datasets=n_synthetic_datasets_ctgan_comparison,
+restart = True,
+redo_hyperparams_vec = [],
+plot_only_new_progress = True,
+hyperparams_name = "categorical_query",
+hyperparams_subname=["ctgan_binomial_loss", "ctgan", "log_frequency", "add_connection_query_to_discrete"],
+add_comparison_folder=True,
+overwrite_dataset=False,
+progress_bar_subprocess=True,
+progress_bar_subsubprocess=progress_bar_subsubprocess
 )
-
 
 
 
