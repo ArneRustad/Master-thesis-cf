@@ -52,7 +52,7 @@ def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_e
                     n_epochs_diff = n_epochs - last_n_epochs
                 tabGAN.train(n_epochs_diff, batch_size = batch_size, restart_training = restart_training, plot_loss = False,
                              progress_bar = True, progress_bar_desc = f"Progress training from epoch {last_n_epochs} to {n_epochs}")
-                fake_train = tabGAN.generate_data()
+                fake_train = tabGAN.sample()
                 fake_train.to_csv(os.path.join(epoch_dataset_dir, f"gen{j}.csv"))
                 pbar.update(1)
                 if j == n_synthetic_datasets:

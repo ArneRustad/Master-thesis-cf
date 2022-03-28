@@ -46,7 +46,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if n_hyperparams is None:
                 n_hyperparams = len(hyperparams)
             elif n_hyperparams != len(hyperparams):
-                raise ValueError("Method not yet implemented for tuning more than three hyperparameters simultaneously")
+                raise ValueError("Length of hyperparams combinations must constant")
 
             if hyperparams_subname is None:
                 hyperparams_abbreviation_vec.append("".join("_" + str(s) for s in hyperparams))
@@ -76,7 +76,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         elif only_separate_by_color:
             legend_title = fr"({', '.join(s.replace('_', ' ').capitalize() for s in hyperparams_subname[1:])}) $=$"
         else:
-            legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname]
+            legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname[1:]]
 
     # Asserting valid input parameters (not yet complete)
     if n_hyperparams > 1:
@@ -95,8 +95,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
     else:
         if separate_legends:
             raise ValueError("When number of hyperparameters is equal to 1, then separate_legend must be set equal to False")
-    if n_hyperparams > 3:
-        raise ValueError("Method not yet implemented for tuning more than three hyperparameters simultaneously")
+    if n_hyperparams > 4 and not only_separate_by_color:
+        raise ValueError("Method not yet implemented for tuning more than four hyperparameters simultaneously if only_separate_by_color=False")
 
     if plot_observations and n_hyperparams > 1:
         warnings.warn("plot_observations is not yet implemented for more than one hyperparameter. This parameter will therefore be ignored")
@@ -200,13 +200,13 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             color_dict = {hp_sub1: next(axes[0]._get_lines.prop_cycler)['color']
                           for hp_sub1 in np.unique(hp_sub_vecs[0,])}
             linestyles = ['-', '--', ':', '-.']
-            linestyles = linestyles[:min(np.unique(hp_sub_vecs[2]).shape[0], len(linestyles))]
-            linewidths = np.linspace(1, 2, np.unique(hp_sub_vecs[2]).shape[0])
             if hp_sub_vecs.shape[0] >= 2:
+                linestyles = linestyles[:min(np.unique(hp_sub_vecs[1]).shape[0], len(linestyles))]
                 linestyle_dict = {hp_sub2: linestyle
                                   for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
             if hp_sub_vecs.shape[0] >= 3:
-                linewidth_dict = {hpsub3: linewidth
+                linewidths = np.linspace(1, 3, np.unique(hp_sub_vecs[2]).shape[0])
+                linewidth_dict = {hp_sub3: linewidth
                                   for hp_sub3, linewidth in zip(np.unique(hp_sub_vecs[2,]), linewidths)}
             for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
                 curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
@@ -215,7 +215,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 if hp_sub_vecs.shape[0] >= 2:
                     curr_linestyle = linestyle_dict[curr_hp_sub_combs[1]]
                 else:
-                    curr_linestyle = linestyle[0]
+                    curr_linestyle = linestyles[0]
 
                 if hp_sub_vecs.shape[0] >= 3:
                     curr_linewidth = linewidth_dict[curr_hp_sub_combs[2]]
@@ -232,6 +232,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         for i, ax in enumerate(axes):
             ax.set_xscale(x_scale)
             ax.set_title(metric_list[i])
+            ax.set_xlabel(label_x_axis)
 
             if bool_x_axis:
                 ax.set_xticks([0, 1])
@@ -247,6 +248,12 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                              for linestyle in linestyle_dict.values()]
                     legend_linestyle = ax.legend(custom_lines_linestyle, linestyle_dict.keys(),
                                                  title=legend_title[1], loc=legend_pos[1])
+                    if hp_sub_vecs.shape[1] >= 3:
+                        custom_lines_linewidth = [Line2D([0], [0], color="black", linewidth=linewidth)
+                                                  for linewidth in linewidth_dict.values()]
+                        legend_linewidth = ax.legend(custom_lines_linewidth, linewidth_dict.keys(),
+                                                     title=legend_title[2], loc=legend_pos[2])
+                        ax.add_artist(legend_linestyle)
                     ax.add_artist(legend_color)
             else:
                 ax.legend(loc=legend_pos, title=legend_title)

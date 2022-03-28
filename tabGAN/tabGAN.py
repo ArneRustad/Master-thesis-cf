@@ -24,10 +24,10 @@ class TabGAN:
     """
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
-    def __init__(self, data, batch_size=500,
+    def __init__(self, data, batch_size=500, gan_method="WGAN-GP", wgan_lambda=10,
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
-                 dim_latent=128, gumbel_temperature=0.5, n_critic=5, wgan_lambda=10,
+                 dim_latent=128, gumbel_temperature=0.5, n_critic=5,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
@@ -99,6 +99,9 @@ class TabGAN:
 
         # Assert
         assert not (ctgan and not use_query)
+        gan_methods = ["WGAN-GP", "WGAN-SGP"]
+        if gan_method not in gan_methods:
+            raise ValueError("Wrong input to parameter gan_method. Currently only implemented options:", gan_methods)
 
         # Initialize variables
         self.data = data
@@ -106,6 +109,8 @@ class TabGAN:
         self.n_columns = len(self.columns)
         self.nrow = data.shape[0]
         self.batch_size = batch_size
+        self.gan_method = gan_method
+        self.wgan_lambda = wgan_lambda
         self.n_hidden_generator_layers = n_hidden_generator_layers
         self.n_hidden_critic_layers = n_hidden_critic_layers
         self.dim_latent = dim_latent
@@ -114,7 +119,6 @@ class TabGAN:
         self.gumbel_temperature = gumbel_temperature
         self.optimizer = optimizer
         self.n_critic = n_critic
-        self.wgan_lambda = wgan_lambda
         self.opt_lr = opt_lr
         self.adam_beta1 = adam_beta1
         self.adam_beta2 = adam_beta2
@@ -701,7 +705,10 @@ class TabGAN:
             combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data)
             combined_gradients = tf.concat(combined_gradients, axis=1)
 
-            loss_discr_gradients = self.wgan_lambda * tf.reduce_mean((tf.norm(combined_gradients, axis=1) - 1) ** 2)
+            gradient_penalty = tf.norm(combined_gradients, axis=1) - 1
+            if self.gan_method == "WGAN-SGP":
+                gradient_penalty = tf.maximum(gradient_penalty, 0)
+            loss_discr_gradients = self.wgan_lambda * tf.reduce_mean(gradient_penalty ** 2)
             loss_discr_combined = loss_discr + loss_discr_gradients
         gradients_of_critic = discr_tape.gradient(loss_discr_combined,
                                                   self.critic.trainable_variables)
