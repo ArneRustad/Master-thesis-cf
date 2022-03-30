@@ -176,8 +176,9 @@ class TabGAN:
         self.jit_compile_arg_func = None # Will be initialized later depending on tensorflow version being less than 2.5 or above
         self.default_epochs_to_train = default_epochs_to_train
 
-        self.np_ix_start = 0
+        self.np_ix_start = tf.convert_to_tensor(0)
         self.np_ix_list = np.array([], dtype=np.int)
+        self.np_ix_iter = None
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
@@ -419,7 +420,7 @@ class TabGAN:
             for integer in quantiles_unique_integer:
                 curr_references = references[np.isclose(quantiles_curr, integer)]
                 n_curr_references = curr_references.shape[0]
-                if n_curr_references >= self.qtr_lbound_apply * self.n_quantiles_int:
+                if n_curr_references >= max((self.qtr_lbound_apply * self.n_quantiles_int, 2)):
                     mask = self.data_num[self.columns_int[i]] == integer
                     n_obs_curr = np.sum(mask)
                     curr_reference_range = curr_references[-1] - curr_references[0]
@@ -761,17 +762,12 @@ class TabGAN:
 
     def get_numpy_data_batch_real_func(self, n_batch):
         if self.np_data_fix:
-            if self.np_ix_start > self.np_ix_list.shape[0] - n_batch:
-                self.np_ix_list = np.concatenate((self.np_ix_list[self.np_ix_start:],
-                                                  np.random.choice(self.data.shape[0], size=self.data.shape[0],
-                                                                   replace=False)),
-                                                 axis=0)
-                self.np_ix_start = 0
-
-            ix = self.np_ix_list[self.np_ix_start:(self.np_ix_start + n_batch)]
+            ix = tf.py_function(lambda: next(self.np_ix_iter),
+                                inp=[], Tout=tf.int64)
         else:
-            ix = np.random.randint(low=0, high=self.data.shape[0], size=n_batch)
-        return [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
+            ix = tf.random.uniform(shape=[n_batch], minval=0, maxval=self.data.shape[0], dtype=tf.dtypes.int64)
+        return tf.py_function(lambda ixs: [self.data_num_scaled_cast[ixs], self.data_discrete_oh_cast[ixs]],
+                          inp=[ix], Tout=[tf.float32, tf.float32])
 
     def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
               plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
@@ -842,6 +838,18 @@ class TabGAN:
 
         if plot_time:
             time_epoch_vec = np.zeros(n_epochs + 1)
+
+        if self.np_data_fix:
+            n_obs_needed = n_epochs * batch_per_epoch * self.n_critic * batch_size
+            np_ix_list = []
+            for i in range(ceil(n_obs_needed / self.data.shape[0])):
+                np_ix_list = np.concatenate((np_ix_list,
+                                             np.random.choice(self.data.shape[0], size=self.data.shape[0],
+                                                              replace=False)),
+                                            axis=0)
+            self.np_ix_iter = iter(np_ix_list[:n_obs_needed].reshape((n_epochs * batch_per_epoch *
+                                                                           self.n_critic,
+                                                                           batch_size)))
 
         epochs = np.arange(self.start_epoch + 1, self.start_epoch + n_epochs + 1)
 
