@@ -16,7 +16,7 @@ if storage is None:
     elif hostname == "idun-login1'":
         storage = lambda: os.path.join("/cluster", "work", "arneir")
     else:
-        raise RuntimeError("Did not recognize the system platform and therefore does not know how to initialize the storage directory path.")
+        raise RuntimeError(f"Did not recognize the system hostname {hostname} and therefore does not know how to initialize the storage directory path.")
 
 data = lambda: os.path.join(project(), "data")
 images = lambda: os.path.join(project(), "images")
