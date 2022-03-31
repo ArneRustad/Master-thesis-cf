@@ -7,7 +7,7 @@ import subprocess
 from tqdm.auto import tqdm
 import torch
 
-print(f"GPU available: {torch.cuda.is_available()}")
+print(f"GPU available: {torch.cuda.is_available()}"
 
 imports_path = "src//imports.ipynb"
 tabGAN_path = "tabGAN.py"
