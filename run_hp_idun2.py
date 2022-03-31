@@ -26,7 +26,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 tf_data_use_vec = [False, True]
-n_synthetic_datasets_tf_data_use_comparison = 10
+n_synthetic_datasets_tf_data_use_comparison = 25
 n_epochs_tf_data_use = 100
 
 def create_tabGAN_for_tf_data_use(tf_data_use):

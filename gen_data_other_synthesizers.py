@@ -7,11 +7,10 @@ import subprocess
 from tqdm.auto import tqdm
 import torch
 
-print(f"GPU available: {torch.cuda.is_available()}"
+print(f"GPU available: {torch.cuda.is_available()}")
 
-imports_path = "src//imports.ipynb"
-tabGAN_path = "tabGAN.py"
-utils_path = "utils\\utils.ipynb"
+import socket
+print(socket.hostname())
 
 os.makedirs(const.dir.data_gen(), exist_ok=True)
 
@@ -43,7 +42,8 @@ dim_latent_layer_mod = 128
 dataset_train_gen_path_tabfairgan_mod = os.path.join(dataset_gen_dir_tabfairgan, f"gen{0}.csv")
 
 
-print("-"*5 + "Generating tabFairGAN-mod datasets" + "-"*5)
+
+print("-"*10 + "Generating tabFairGAN-mod datasets" + "-"*10)
 for i in tqdm(range(n_synthetic_datasets), desc = "Generated datasets", disable = False):
     dataset_train_gen_path_tabfairgan_mod = os.path.join(dataset_gen_dir_tabfairgan_mod, f"gen{i}.csv")
     subprocess.call(
