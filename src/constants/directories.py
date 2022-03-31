@@ -13,15 +13,13 @@ if storage is None:
         storage = lambda: os.path.join("S:", "arneir", "Master-thesis-storage")
     elif hostname == "markov.math.ntnu.no":
         storage = lambda: os.path.join("/work", "arneir", "Master-thesis-storage/")
-    elif hostname == "idun-login1'":
+    elif hostname[:4] == "idun":
         storage = lambda: os.path.join("/cluster", "work", "arneir")
     else:
         raise RuntimeError(f"Did not recognize the system hostname {hostname} and therefore does not know how to initialize the storage directory path.")
 
 data = lambda: os.path.join(project(), "data")
 images = lambda: os.path.join(project(), "images")
-
-print("Storage dir:", const.dir.storage())
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
 hyperparams_tuning = lambda: os.path.join(storage(), "hyperparams_tuning")
