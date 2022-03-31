@@ -463,26 +463,38 @@ class TabGAN:
             data_int = None
         return (pd.concat([data_float, data_int, data_discrete], axis=1)[self.columns])
 
+
     def generate_queries(self, n, ret_query_id=False, original_probs=True):
         """
         Generate n queries. Implemented for ctgan parameter. Else a dummy function
         """
         if self.ctgan:
             if original_probs:
-                query_ids = np.random.choice(self.queries_all.shape[0], size=n, replace=True,
-                                             p=self.query_original_probs)
+                query_ids = tf.random.categorical(
+                    logits=tf.math.log(tf.expand_dims(self.query_original_probs, axis=0)),
+                    num_samples=n, dtype=tf.int64
+                )
             else:
-                query_ids = np.random.choice(self.queries_all.shape[0], size=n, replace=True,
-                                             p=self.query_probs)
+                query_ids = tf.random.categorical(
+                    logits=tf.math.log(tf.expand_dims(self.query_original_probs, axis=0)),
+                    num_samples=n, dtype=tf.int64
+                )
+            query_ids = tf.squeeze(query_ids, axis=0)
+            drawn_queries = tf.py_function(lambda ids: self.queries_all[ids, :],
+                                           inp=[query_ids], Tout=tf.float32)
             if ret_query_id:
-                return self.queries_all[query_ids, :], query_ids
+                return drawn_queries, query_ids
             else:
-                return self.queries_all[query_ids, :]
+                return drawn_queries
         # Return a dummy query consisting of only zeros
         else:
             return tf.zeros([n, self.n_columns_discrete_oh])
 
     def get_numpy_data_batch_real_from_queries(self, query_ids):
+        return tf.py_function(self._get_numpy_data_batch_real_from_queries,
+                              inp=[query_ids], Tout=[tf.float32, tf.float32])
+
+    def _get_numpy_data_batch_real_from_queries(self, query_ids):
         u = np.random.uniform(low=0, high=1, size=query_ids.shape[0])
         indices_idx = np.round(u * (self.map_query_id_to_n_indices[query_ids] - 1)).astype(np.int)
         idx = self.map_query_id_and_indices_idx_to_obs_idx(query_ids, indices_idx)
@@ -651,7 +663,7 @@ class TabGAN:
         """
         return tfd.RelaxedOneHotCategorical(temperature=self.gumbel_temperature, logits=logits).sample()
 
-    def train_step_func(self, n_batch):
+    def train_step_func(self, n_batch, ret_loss=False):
         """
         Internal function for running training for a single batch.
         """
@@ -665,15 +677,17 @@ class TabGAN:
                 if self.tf_data_use:
                     data_batch_real = next(self.data_processed_iter)
                 else:
-                    # ix = np.random.randint(low=0, high=self.nrow, size=n_batch)
-                    # data_batch_real = [self.data_num_scaled_cast[ix], self.data_discrete_oh_cast[ix]]
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
                 self.train_step_critic(data_batch_real, n_batch)
 
-        em_distance = self.compute_em_distance()
+        if ret_loss:
+            em_distance = self.compute_em_distance()
 
         loss_gen = self.train_step_generator(n_batch)
-        return em_distance, loss_gen
+        if ret_loss:
+            return em_distance, loss_gen
+        else:
+            return None, None
 
 
     def train_step_critic_func(self, data_batch_real, n_batch, queries=None):
@@ -866,10 +880,12 @@ class TabGAN:
                     for batch in range(batch_per_epoch):
                         with tf.profiler.experimental.Trace('train_step', step_num=epoch, _r=1):
                             em_distance_batch, gen_loss_batch = self.train_step(batch_size)
-                        g_loss += gen_loss_batch
-                        em_distance += em_distance_batch
-                    g_loss /= batch_per_epoch
-                    em_distance /= batch_per_epoch
+                        if plot_loss or plot_loss_return:
+                            g_loss += gen_loss_batch
+                            em_distance += em_distance_batch
+                    if plot_loss or plot_loss_return:
+                        g_loss /= batch_per_epoch
+                        em_distance /= batch_per_epoch
 
                     if tf_profile_train_step_range[1] == epoch:
                         tf.profiler.experimental.stop(tf_profile_log_dir)
