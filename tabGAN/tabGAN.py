@@ -24,7 +24,7 @@ class TabGAN:
     """
     Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
     """
-    def __init__(self, data, batch_size=500, gan_method="WGAN-GP", wgan_lambda=10,
+    def __init__(self, data, batch_size=500, gan_method="WGAN-GP", wgan_lambda=10, pac=1,
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5,

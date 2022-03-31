@@ -8,9 +8,9 @@ if project is None:
 
 if storage is None:
     if sys.platform == "win32":
-        storage = lambda: "S:/arneir/Master-thesis-storage/"
+        storage = lambda: os.path.join("S:", "arneir", "Master-thesis-storage")
     elif sys.platform == "linux":
-        storage = lambda: "/work/arneir/Master-thesis-storage/"
+        storage = lambda: os.path.join("/work", "arneir", "Master-thesis-storage/")
     else:
         raise RuntimeError("Did not recognize the system platform and therefore does not know how to initialize the storage directory path.")
 
