@@ -30,7 +30,7 @@ ctgan_vec += [(bin_loss, True, log_freq, add_connection)
               for bin_loss in [False, True]
               for log_freq in [False, True]
               for add_connection in [False, True]]
-n_synthetic_datasets_ctgan_comparison = 25
+n_synthetic_datasets_ctgan_comparison = 10
 n_epochs_ctgan = 100
 
 def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency, ctgan_binomial_loss, add_connection_query_to_discrete):
