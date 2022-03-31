@@ -9,9 +9,6 @@ import torch
 
 print(f"GPU available: {torch.cuda.is_available()}")
 
-import socket
-print(socket.hostname())
-
 os.makedirs(const.dir.data_gen(), exist_ok=True)
 
 data_test_tabfairgan = pd.read_csv(os.path.join(const.dir.data(), "df_adult_edited_test.csv"))
