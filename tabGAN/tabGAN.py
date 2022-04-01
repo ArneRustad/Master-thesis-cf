@@ -9,8 +9,9 @@ from math import floor, ceil
 from tqdm.auto import tqdm
 
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU, Embedding,
-                                     Activation, Dropout)
+from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
+                                     ELU, Embedding, Activation, Dropout)
+from tensorflow.keras.activations import gelu, selu, swish
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
@@ -32,7 +33,9 @@ class TabGAN:
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
-                 leaky_relu_alpha=0.3, add_dropout_critic=[], add_dropout_generator=[],
+                 activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
+                 elu_alpha=1.0,
+                 add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
                  add_connection_query_to_discrete=False,
@@ -49,6 +52,20 @@ class TabGAN:
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
         # Create variable defaults if needed
+        activation_function = activation_function.lower()
+        dict_activation_function = {
+            "leakyrelu": LeakyReLU(alpha=leaky_relu_alpha),
+            "relu": ReLU(),
+            "gelu": lambda x: gelu(x, approximate=gelu_approximate),
+            "selu": selu,
+            "swish": swish,
+            "elu": ELU(alpha=elu_alpha),
+        }
+        if activation_function in dict_activation_function.keys():
+            activation_function = dict_activation_function[activation_function]
+        else:
+            raise ValueError(f"The activation function {activation_function} is not (yet) implemented")
+
         if use_query is None:
             use_query = True if ctgan else False
         if n_hidden_generator_layers is None:
@@ -146,6 +163,7 @@ class TabGAN:
         self.ctgan = ctgan
         self.ctgan_log_frequency = ctgan_log_frequency
         self.ctgan_binomial_loss = ctgan_binomial_loss
+        self.activation_function = activation_function
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
         self.add_dropout_generator = add_dropout_generator
@@ -573,7 +591,7 @@ class TabGAN:
         if 0 in self.add_dropout_critic:
             hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_critic_layers):
-            hidden = Dense(self.dim_hidden_critic[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
+            hidden = Dense(self.dim_hidden_critic[i], activation=self.activation_function,
                            name=f"hidden{i+1}")(hidden)
             if (i+1) in self.add_dropout_critic:
                 hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout{i+1}")(hidden)
@@ -606,7 +624,7 @@ class TabGAN:
         if 0 in self.add_dropout_generator:
             hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_generator_layers):
-            hidden = Dense(self.dim_hidden_generator[i], activation=LeakyReLU(alpha=self.leaky_relu_alpha),
+            hidden = Dense(self.dim_hidden_generator[i], activation=self.activation_function,
                            name=f"hidden{i+1}")(hidden)
             if (i+1) in self.add_dropout_generator:
                 hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)

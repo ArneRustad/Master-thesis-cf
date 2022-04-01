@@ -24,7 +24,7 @@ if __name__ == "__main__":
         if args.verbal >= 1:
             print(f"Deleting wanted hp_dirs on {name}")
         for hp_dir in args.hp_dirs:
-            curr_hp_dir_path = os.path.join(dict_location_name_to_path[hp_dir],
+            curr_hp_dir_path = os.path.join(dict_location_name_to_path[name],
                                             args.subfolder, hp_dir + "_comparison")
             if os.path.exists(curr_hp_dir_path):
                 shutil.rmtree(curr_hp_dir_path)

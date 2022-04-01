@@ -24,6 +24,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             result_table_split_hps=False,
                                             label_x_axis=None,
                                             bool_x_axis=False,
+                                            str_x_axis=None,
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False,
@@ -59,6 +60,13 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 raise ValueError("The number of hyperparameters given must be equal for all combinations.")
             hyperparams_abbreviation_vec.append("_" + str(hyperparams))
             n_hyperparams = 1
+    
+    if str_x_axis is None:
+        if n_hyperparams == 1:
+            str_x_axis = isinstance(hyperparams_vec[0], str)
+        else:
+            str_x_axis = isinstance(hyperparams_vec[0][0], str)
+        
 
     # Create legend_pos variable if not entered as a parameter. Value depends on the bool separate_legends
     # and number of hyperparameters
@@ -230,7 +238,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                          linewidth=curr_linewidth,
                          marker="o")
         for i, ax in enumerate(axes):
-            ax.set_xscale(x_scale)
+            if not str_x_axis:
+                ax.set_xscale(x_scale)
             ax.set_title(metric_list[i])
             ax.set_xlabel(label_x_axis)
 
@@ -278,7 +287,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         color_auc = next(ax_auc._get_lines.prop_cycler)['color']
 
         for ax, metric, col in zip([ax_accuracy, ax_auc], ["Accuracy", "AUC"], [color_accuracy, color_auc]):
-            ax.set_xscale(x_scale)
+            if not str_x_axis:
+                ax.set_xscale(x_scale)
             ax.set_xlabel(label_x_axis)
             plot(ax, hyperparams_vec, result[metric], label=metric, color=col, marker="o")
             if plot_observations:
@@ -291,6 +301,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if bool_x_axis:
                 print("hei")
                 ax.set_xticks([0, 1], ["False", "True"])
+            elif str_x_axis:
+
+                ax.set_x_ticks(np.arange())
             if plot_separate:
                 ax.set_ylabel(metric)
             ax.legend(loc=legend_pos)
