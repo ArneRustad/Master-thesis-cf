@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
                                      ELU, Embedding, Activation, Dropout)
-from tensorflow.keras.activations import gelu, selu, swish
+from tensorflow.keras.activations import gelu, selu, swish, relu
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
@@ -60,6 +60,7 @@ class TabGAN:
             "selu": selu,
             "swish": swish,
             "elu": ELU(alpha=elu_alpha),
+            "squaredrelu": lambda x: tf.math.square(relu(x))
         }
         if activation_function in dict_activation_function.keys():
             activation_function = dict_activation_function[activation_function]
@@ -114,20 +115,25 @@ class TabGAN:
         if dropout_rate_generator is None:
             dropout_rate_generator = dropout_rate
 
-        # Assert
+        # Assert correct input
         assert not (ctgan and not use_query)
         gan_methods = ["WGAN-GP", "WGAN-SGP"]
         if gan_method not in gan_methods:
             raise ValueError("Wrong input to parameter gan_method. Currently only implemented options:", gan_methods)
+        if batch_size % pac != 0:
+            raise ValueError(f"Batch size ({batch_size}) must be a multiple of pac size ({pac})." 
+                             " Please change one or both of these parameters")
 
         # Initialize variables
         self.data = data
+        self.batch_size = batch_size
         self.columns = data.columns
         self.n_columns = len(self.columns)
         self.nrow = data.shape[0]
         self.batch_size = batch_size
         self.gan_method = gan_method
         self.wgan_lambda = wgan_lambda
+        self.pac = pac
         self.n_hidden_generator_layers = n_hidden_generator_layers
         self.n_hidden_critic_layers = n_hidden_critic_layers
         self.dim_latent = dim_latent
@@ -256,7 +262,7 @@ class TabGAN:
             self.jit_compile_arg_func = lambda bool: {"jit_compile": bool}
 
         # Create generator and critic objects as well as critic and generator optimizer
-        self.initialize_gan()
+        #self.initialize_gan() #Not needed now, will be done when initiating training
         # If needed create checkpoint manager
         if (self.ckpt_dir != None):
             self.initialize_cptk()
@@ -291,6 +297,7 @@ class TabGAN:
         if self.ctgan:
             self.query_probs = np.empty(shape=(self.n_columns_discrete_oh), dtype=np.float32)
             self.query_original_probs = np.empty(shape=(self.n_columns_discrete_oh), dtype=np.float32)
+            self.n_columns_query = self.n_columns_discrete_oh
             #self.map_query_id_to_mask_indices = {}
             start_idx = 0
             for i, col_discrete in enumerate(self.columns_discrete):
@@ -539,7 +546,10 @@ class TabGAN:
         noise = self.generate_latent(n)
         if self.use_query:
             if queries is None:
-                queries = self.generate_queries(n, original_probs=True)
+                if self.ctgan:
+                    queries = self.generate_queries(n, original_probs=True)
+                else:
+                    queries = self.generate_queries(n)
             gen_input = [noise, queries]
         else:
             gen_input = [noise]
@@ -574,14 +584,10 @@ class TabGAN:
         Internal function for creating the critic neural network. Uses input parameters given to TabGAN to decide
         between different critic architectures
         """
-        input_numeric = Input(shape=(self.n_columns_num), name="Numeric_input")
-        input_discrete = Input(shape=(self.n_columns_discrete_oh), name="Discrete_input")
+        input_numeric = Input(shape=(self.n_columns_num * self.pac), name="Numeric_input")
+        input_discrete = Input(shape=(self.n_columns_discrete_oh * self.pac), name="Discrete_input")
         if self.use_query:
-            if self.ctgan:
-                size_query = self.n_columns_discrete_oh
-            else:
-                raise ValueError("Currently ctgan is the only submethod of tabGAN implemented using query")
-            query = Input(shape=(size_query), name="Query")
+            query = Input(shape=(self.n_columns_query * self.pac), name="Query")
             combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
             inputs = [input_numeric, input_discrete, query]
         else:
@@ -607,13 +613,9 @@ class TabGAN:
         if self.n_columns_num == 0:
             raise ValueException("TabGAN not yet implemented for zero numerical columns")
 
-        latent = Input(shape=(self.dim_latent), name="Latent")
+        latent = Input(shape=self.dim_latent, name="Latent")
         if self.use_query:
-            if self.ctgan:
-                size_query = self.n_columns_discrete_oh
-            else:
-                raise ValueError("Currently ctgan is the only submethod of tabGAN implemented using query")
-            query = Input(shape=(size_query), name="Query")
+            query = Input(shape=self.n_columns_query, name="Query")
             combined1 = concatenate([latent, query], name="Concatenate_input")
             inputs = [latent, query]
         else:
@@ -687,9 +689,14 @@ class TabGAN:
         """
         for i in range(self.n_critic):
             #data_batch_real = self.get_data_batch_real()
-            if self.ctgan:
-                queries, query_ids = self.generate_queries(n_batch, ret_query_id=True, original_probs=False)
-                data_batch_real = self.get_numpy_data_batch_real_from_queries(query_ids)
+            if self.use_query:
+                if self.ctgan:
+                    queries, query_ids = self.generate_queries(n_batch, ret_query_id=True,
+                                                               original_probs=False)
+                    data_batch_real = self.get_numpy_data_batch_real_from_queries(query_ids)
+                else:
+                    queries = self.generate_queries(n_batch)
+                    data_batch_real = self.get_numpy_data_batch_real_from_queries(queries)
                 self.train_step_critic(data_batch_real, n_batch, queries=queries)
             else:
                 if self.tf_data_use:
@@ -713,6 +720,20 @@ class TabGAN:
         noise_and_query = [noise, queries] if self.use_query else noise
         data_batch_gen = self.generator(noise_and_query, training=True)
 
+        n_batch_pac = n_batch // self.pac
+        if self.pac > 1:
+            if self.use_query:
+                queries = tf.reshape(queries, (n_batch_pac, self.n_columns_query * self.pac))
+            data_batch_gen = [
+                tf.reshape(data_batch_gen[0], (n_batch_pac, self.n_columns_num * self.pac)),
+                tf.reshape(data_batch_gen[1], (n_batch_pac, self.n_columns_discrete_oh * self.pac))
+            ]
+            data_batch_real = [
+                tf.reshape(data_batch_real[0], (n_batch_pac, self.n_columns_num * self.pac)),
+                tf.reshape(data_batch_real[1], (n_batch_pac, self.n_columns_discrete_oh * self.pac))
+            ]
+
+
         with tf.GradientTape() as discr_tape:
             output_discr_real = self.critic(
                 [data_batch_real[0], data_batch_real[1], queries] if self.use_query else data_batch_real,
@@ -722,9 +743,10 @@ class TabGAN:
                 [data_batch_gen[0], data_batch_gen[1], queries] if self.use_query else data_batch_gen,
                 training=True
             )
-            loss_discr = - tf.reduce_mean(output_discr_real) + tf.reduce_mean(output_discr_fake)
+            loss_discr = self.calc_loss_discr(real_output=output_discr_real,
+                                              fake_output=output_discr_fake)
 
-            epsilon = tf.random.uniform([n_batch, 1])
+            epsilon = tf.random.uniform([n_batch_pac, 1])
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
             if self.use_query:
@@ -750,36 +772,72 @@ class TabGAN:
 
         return None
 
+    def calc_loss_discr(self, real_output, fake_output):
+        return - tf.reduce_mean(real_output) + tf.reduce_mean(fake_output)
+
+    def calc_loss_generator(self, fake_output):
+        return - tf.reduce_mean(fake_output)
+
     def compute_em_distance_func(self):
         noise = self.generate_latent(self.data.shape[0])
         if self.use_query:
-            queries = self.generate_queries(self.data.shape[0], original_probs=True)
+            if self.ctgan:
+                queries = self.generate_queries(self.data.shape[0], original_probs=True)
+            else:
+                queries = self.generate_queries(self.data.shape[0])
             noise_and_queries = [noise, queries]
         else:
             noise_and_queries = noise
         gen_data_num, gen_data_discrete = self.generator(noise_and_queries, training=True)
+
+        if self.pac > 1:
+            n_batch_pac = n_batch // self.pac
+            if self.use_query:
+                queries = tf.reshape(queries, shape=(n_batch_pac, self.n_columns_query * self.pac))
+            gen_data_num = tf.reshape(gen_data_num, shape=(n_batch_pac, self.n_columns_num * self.pac))
+            gen_data_discrete = tf.reshape(gen_data_discrete,
+                                           shape=(n_batch_pac, self.n_columns_discrete_oh * self.pac))
+            data_num_scaled = tf.reshape(self.data_num_scaled, shape=(n_batch_pac, self.n_columns_num * self.pac))
+            data_discrete_oh = tf.reshape(self.data_discrete_oh,
+                                          shape=(n_batch_pac, self.n_columns_discrete_oh * self.pacto))
+        else:
+            data_num_scaled = self.data_num_scaled
+            data_discrete_oh = self.data_discrete_oh
+
         output_discr_real = self.critic(
-            [self.data_num_scaled, self.data_discrete_oh, queries] if self.use_query
-            else [self.data_num_scaled, self.data_discrete_oh], training=True)
+            [data_num_scaled, data_discrete_oh, queries] if self.use_query
+            else [data_num_scaled, data_discrete_oh], training=True)
         output_discr_fake = self.critic(
             [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
             training=True)
-        em_distance = tf.reduce_mean(output_discr_real) - tf.reduce_mean(output_discr_fake)
+        em_distance = self.calc_loss_discr(real_output=output_discr_real, fake_output=output_discr_fake)
         return em_distance
 
     def train_step_generator_func(self, n_batch):
         noise = self.generate_latent(n_batch)
         if self.use_query:
-            queries = self.generate_queries(n_batch, original_probs=True)
+            if self.ctgan:
+                queries = self.generate_queries(n_batch, original_probs=True)
+            else:
+                queries = self.generate_queries(n_batch)
+
         with tf.GradientTape() as gen_tape:
             gen_data_num, gen_data_discrete = self.generator(
                 [noise, queries] if self.use_query else noise, training=True
             )
-            loss_gen = - tf.reduce_mean(
-                self.critic(
-                    [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
-                    training=True)
-            )
+
+            if self.pac > 1:
+                n_batch_pac = n_batch // self.pac
+                if self.use_query:
+                    queries = tf.reshape(queries, shape=(n_batch_pac, self.n_columns_query * self.pac))
+                gen_data_num = tf.reshape(gen_data_num, shape=(n_batch_pac, self.n_columns_num * self.pac))
+                gen_data_discrete = tf.reshape(gen_data_discrete,
+                                               shape=(n_batch_pac, self.n_columns_discrete_oh * self.pac))
+
+            fake_output = self.critic(
+                [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
+                training=True)
+            loss_gen = self.calc_loss_generator(fake_output=fake_output)
             if self.ctgan and self.ctgan_binomial_loss:
                 loss_gen -= tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
 
@@ -824,8 +882,11 @@ class TabGAN:
         if plot_loss and plot2D_image:
             raise ValueError("plot_loss and plot2D_image can not both be True at the same time")
 
-        if batch_size == None:
+        if batch_size is None:
             batch_size = self.batch_size
+        if batch_size % self.pac != 0:
+            raise ValueError(f"Batch size ({batch_size}) must be a multiple of pac size ({self.pac})."
+                             " Please change one or both of these parameters")
 
         if plot2D_save_int != None:
             plot2D_save_epochs = np.arange(0, n_epochs, plot2D_save_int)
