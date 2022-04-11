@@ -352,8 +352,10 @@ class TabGAN:
             raise ValueError("Optimizer name not recognized. Currently only implemented optimizers: adam, sgd and rmsprop")
         self.start_epoch = 0
         
-        if self.tf_make_generate_latent_graph:
+        if self.tf_make_generate_latent_graph and not (self.tf_make_graph and self.jit_compile_generate_latent):
             self.generate_latent = tf.function(self.generate_latent_func, **self.jit_compile_arg_func(self.jit_compile_generate_latent))
+        else:
+            self.generate_latent = self.generate_latent_func
         if self.tf_make_numpy_data_step_graph and not self.tf_data_use:
             self.get_numpy_data_batch_real = tf.function(self.get_numpy_data_batch_real_func, **self.jit_compile_arg_func(self.jit_compile_numpy_data_step))
         else:
@@ -672,10 +674,7 @@ class TabGAN:
         """
         Internal function for generating latent noise as input for generator
         """
-        if self.ctgan:
-            return tf.random.normal([n, self.dim_latent])
-        else:
-            return tf.random.normal([n, self.dim_latent])
+        return tf.random.normal([n, self.dim_latent])
 
     def gumbel_softmax(self, logits):
         """
@@ -860,12 +859,13 @@ class TabGAN:
                           inp=[ix], Tout=[tf.float32, tf.float32])
 
     def train(self, n_epochs=None, batch_size=None, restart_training=False, progress_bar=False, progress_bar_desc=None,
-              plot_loss=False, plot2D_image=False, plot_time=False, plot_loss_type="scatter",
+              plot_loss=False, plot2D_image=False, plot2D_image_real_time=False, plot_time=False, plot_loss_type="scatter",
+              plot_loss_real_time=False,
               plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_graph=None,
               save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
               plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
               plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
-              plot2D_n_test=None, plot_loss_return=None,
+              plot2D_n_test=None,
               tf_profile_train_step_range=[-1, -1], tf_profile_log_dir="log_tabGAN"):
         """
         Function for training the data synthesizer (training the GAN architecture).
@@ -879,8 +879,8 @@ class TabGAN:
             tf_make_graph = self.tf_make_graph
             self.initialized_gan=False
 
-        if plot_loss and plot2D_image:
-            raise ValueError("plot_loss and plot2D_image can not both be True at the same time")
+        if plot_loss_real_time and plot2D_image_real_time:
+            raise ValueError("plot_loss_real_time and plot2D_image_real_time can not both be True at the same time")
 
         if batch_size is None:
             batch_size = self.batch_size
@@ -911,23 +911,41 @@ class TabGAN:
             os.makedirs(self.ckpt_dir, exist_ok=True)
             self.initialize_cptk()
 
+        if all(isinstance(col, int) for col in plot2D_num_cols):
+            plot2D_num_cols = self.columns_num[plot2D_num_cols]
+
+        if isinstance(plot2D_discrete_col, int):
+            plot2D_discrete_col = self.columns[plot2D_discrete_col]
+
         batch_per_epoch = int(self.nrow / batch_size)
 
-        n_img_vert = ceil(plot2D_n_save_img / plot2D_n_img_horiz)
+        plot2D_n_img_vert = ceil(plot2D_n_save_img / plot2D_n_img_horiz)
 
-        if plot2D_image:
-            fig_plot2D = plt.figure(figsize=(16, 16 / plot2D_n_img_horiz * n_img_vert))
-            if not plot2D_title is None:
-                fig_plot2D.suptitle(plot2D_title)
-            noise_test = self.generate_latent(plot2D_n_test)
-            queries_test = tf.zeros([plot2D_n_test, self.n_columns_discrete_oh])
-
-        if plot_loss:
+        if plot2D_image or plot2D_image_real_time or filename_plot2D:
             hdisplay = display("", display_id=True)
-            fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
-            ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
+            fig_plot2D, axes_plot2D = plt.subplots(plot2D_n_img_vert, plot2D_n_img_horiz,
+                                                   figsize=(16, 16 / plot2D_n_img_horiz * plot2D_n_img_vert),
+                                                   squeeze=False)
+            noise_test = self.generate_latent(plot2D_n_test)
+            if self.use_query:
+                queries_test = self.generate_queries(plot2D_n_test)
+            else:
+                queries_test = None
+            plot2D_any = True
+            plot2D_img_count = 0
+        else:
+            plot2D_any = False
+        
+        if plot_loss or plot_loss_real_time or filename_plot_loss:
             gen_loss_vec = np.zeros(n_epochs)
             em_distance_vec = np.zeros(n_epochs)
+            plot_loss_any = True
+            if plot_loss_real_time:
+                hdisplay = display("", display_id=True)
+                fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 6))
+                ax_loss.hlines(0, self.start_epoch, self.start_epoch + n_epochs, color="black", linestyle="dashed")
+        else:
+            plot_loss_any = False
 
         if plot_time:
             time_epoch_vec = np.zeros(n_epochs + 1)
@@ -946,32 +964,32 @@ class TabGAN:
 
         epochs = np.arange(self.start_epoch + 1, self.start_epoch + n_epochs + 1)
 
-        img_count = 1
         with tqdm(total=n_epochs, leave=False, disable=not progress_bar, desc=progress_bar_desc) as pbar:
             # manually enumerate epochs
             for epoch in range(0, n_epochs + 1):
-                if (plot_time):
+                if plot_time:
                     time_before_epoch = time.perf_counter()
-                if (epoch > 0):
+                if epoch > 0:
                     em_distance = g_loss = 0
                     if tf_profile_train_step_range[0] == epoch:
                         tf.profiler.experimental.start(tf_profile_log_dir)
                     for batch in range(batch_per_epoch):
                         with tf.profiler.experimental.Trace('train_step', step_num=epoch, _r=1):
-                            em_distance_batch, gen_loss_batch = self.train_step(batch_size)
-                        if plot_loss or plot_loss_return:
+                            em_distance_batch, gen_loss_batch = self.train_step(batch_size,
+                                                                                ret_loss=plot_loss_any)
+                        if plot_loss_any:
                             g_loss += gen_loss_batch
                             em_distance += em_distance_batch
-                    if plot_loss or plot_loss_return:
+                    if plot_loss_any:
                         g_loss /= batch_per_epoch
                         em_distance /= batch_per_epoch
+                        gen_loss_vec[epoch - 1] = g_loss
+                        em_distance_vec[epoch - 1] = em_distance
 
                     if tf_profile_train_step_range[1] == epoch:
                         tf.profiler.experimental.stop(tf_profile_log_dir)
                     
-                    if plot_loss:
-                        gen_loss_vec[epoch - 1] = g_loss
-                        em_distance_vec[epoch - 1] = em_distance
+                    if plot_loss_real_time:
                         if (epoch % plot_loss_update_every == 0 or epoch in [1, n_epochs]):
                             if (epoch > 1):
                                 scatter_critic.remove()
@@ -995,42 +1013,30 @@ class TabGAN:
                             os.remove(os.path.join(self.ckpt_dir, "checkpoint"))
                         self.ckpt_manager.save(self.ckpt.epoch.numpy())
                     self.ckpt.epoch.assign_add(1)
-                if plot2D_image:
+                if plot2D_any:
                     if epoch in plot2D_save_epochs:
-                        ax_plot2D = fig_plot2D.add_subplot(n_img_vert, plot2D_n_img_horiz, img_count)
-                        gen_data_num, gen_data_discrete = self.generator([noise_test, queries_test])
+                        ax_plot2D = axes_plot2D[plot2D_img_count // plot2D_n_img_horiz, plot2D_img_count % plot2D_n_img_horiz]
 
-                        if not plot2D_background_func is None:
+                        if plot2D_background_func is not None:
                             plot2D_background_func(ax_plot2D)
 
-                        if (plot2D_inv_scale):
-                            gen_data_num = self.scaler_num.inverse_transform(gen_data_num)
-                            gen_data_discrete = self.oh_encoder.inverse_transform(gen_data_discrete)
-                            gen_data_discrete = pd.DataFrame(gen_data_discrete, columns=self.columns_discrete)
-                            if plot2D_discrete_col is None:
-                                color = None
-                            else:
-                                labels_unique = np.unique(gen_data_discrete[plot2D_discrete_col])
-                                colors_unique = map_str_to_color(labels_unique)
-                                color_dict = {label: color for label, color in zip(labels_unique, colors_unique)}
-                                color = gen_data_discrete[plot2D_discrete_col].map(color_dict)
+                        self.plot2D_axis_update(ax=ax_plot2D, latent_vec=noise_test, queries=queries_test,
+                                                inv_scale=plot2D_inv_scale,
+                                                num_cols=plot2D_num_cols, discrete_col=plot2D_discrete_col,
+                                                legend=(plot2D_img_count == 0),
+                                                color_opacity=plot2D_color_opacity)
 
-                            if img_count == 1:
-                                markers = [plt.Line2D([0, 0], [0, 0], color=color, marker='o', linestyle='', alpha=0.5)
-                                           for color in color_dict.values()]
-                                plt.legend(markers, color_dict.keys(), numpoints=1)
-                        ax_plot2D.scatter(gen_data_num[:, plot2D_num_cols[0]], gen_data_num[:, plot2D_num_cols[1]],
-                                          c=color, alpha=plot2D_color_opacity)
                         ax_plot2D.set_title("Epoch %d/%d" % (epoch, n_epochs))
-                        plt.tight_layout()
-                        display(fig_plot2D)
-                        clear_output(wait=True)
-                        img_count += 1
+                        if plot2D_img_count == 0:
+                            plt.tight_layout()
+                        if plot2D_image_real_time:
+                            hdisplay.update(fig_plot2D)
+                        plot2D_img_count += 1
 
-                if (plot_time):
+                if plot_time:
                     time_epoch_vec[epoch] = time.perf_counter() - time_before_epoch
 
-        if plot_loss:
+        if plot_loss_real_time:
             plt.close(fig_loss)
         
         if plot_loss or filename_plot_loss:
@@ -1048,7 +1054,7 @@ class TabGAN:
             ax_loss.legend()
             plt.close(fig_loss)
 
-        if not (plot_loss_return or plot_time or plot_time):
+        if not (plot_loss or plot_time or plot_time):
             return None
 
         return_figures = ()
@@ -1056,8 +1062,10 @@ class TabGAN:
         if plot_loss:
             return_figures += (fig_loss,)
 
-        if plot2D_image:
+        if plot2D_image_real_time:
             plt.close(fig_plot2D)
+
+        if plot2D_image:
             return_figures += (fig_plot2D,)
 
         if plot_time:
@@ -1080,6 +1088,31 @@ class TabGAN:
                 fig_loss.savefig(save_path)
 
         return return_figures
+
+    def plot2D_axis_update(self, ax, latent_vec, num_cols, discrete_col=None, queries=None, inv_scale=True,
+                           legend=True, color_opacity=1):
+        gen_data_num, gen_data_discrete = self.generator([latent_vec, queries] if self.use_query
+                                                         else [latent_vec])
+
+        if inv_scale:
+            gen_data = self.inv_data_transform(gen_data_num, gen_data_discrete)
+            if discrete_col is None:
+                color_dict = {"all": next(ax_plot2D._get_lines.prop_cycler)['color']}
+                color = None
+            else:
+                labels_unique = np.sort(np.unique(gen_data[discrete_col]))
+                colors_unique = [next(ax._get_lines.prop_cycler)['color'] for label in labels_unique]
+                color_dict = {label: color for label, color in zip(labels_unique, colors_unique)}
+                color = gen_data[discrete_col].map(color_dict)
+
+                if legend:
+                    markers = [plt.Line2D([0, 0], [0, 0], color=color, marker='o', linestyle='', alpha=0.5)
+                               for color in color_dict.values()]
+                    ax.legend(markers, color_dict.keys(), numpoints=1)
+        else:
+            gen_data = pd.DataFrame(gen_data_num, columns=self.columns_num)
+            color = None
+        ax.scatter(gen_data[num_cols[0]], gen_data[num_cols[1]], c=color, alpha=color_opacity)
 
     def restore_checkpoint(self, epoch="latest"):
         """

@@ -57,8 +57,8 @@ class TabGANcfmc(TabGAN):
         cumsum_each_rank = np.cumsum(n_each_rank)
         if cumsum_each_rank[-1] < n_to_keep:
             raise RuntimeError(
-                "Not enough valid counterfactuals were generated," \
-                "increase the parameter n_to_generate to decrease the chance of this happening."
+                "Not enough valid counterfactuals were generated,"
+                " increase the parameter n_to_generate to decrease the chance of this happening."
             )
         last_needed_rank = np.where(np.greater_equal(cumsum_each_rank, n_to_keep))[0][0]
         rank_list = rank_list[:last_needed_rank + 1]
