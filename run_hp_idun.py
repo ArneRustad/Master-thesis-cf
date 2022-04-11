@@ -25,6 +25,15 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
+
 activation_function_vec = [("LeakyReLU", False), ("GELU", False), ("GELU", True)]
 n_synthetic_datasets_activation_function_comparison = 10
 n_epochs_activation_function = 100

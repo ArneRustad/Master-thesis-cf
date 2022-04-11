@@ -4,6 +4,7 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
+#SBATCH --gpus-per-node=1
 #SBATCH --job-name="hp"
 #SBATCH --out=hp_tuning.out
 #SBATCH --error=hp_tuning.err
