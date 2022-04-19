@@ -877,7 +877,6 @@ class TabGAN:
                 n_epochs = self.default_epochs_to_train
         if tf_make_graph is None:
             tf_make_graph = self.tf_make_graph
-            self.initialized_gan=False
 
         if plot_loss_real_time and plot2D_image_real_time:
             raise ValueError("plot_loss_real_time and plot2D_image_real_time can not both be True at the same time")
@@ -906,7 +905,7 @@ class TabGAN:
         if restart_training or not self.initialized_gan:
             self.initialize_gan(tf_make_graph=tf_make_graph)
 
-        if restart_training and not self.ckpt_dir is None:
+        if restart_training and self.ckpt_dir is not None:
             shutil.rmtree(self.ckpt_dir)
             os.makedirs(self.ckpt_dir, exist_ok=True)
             self.initialize_cptk()

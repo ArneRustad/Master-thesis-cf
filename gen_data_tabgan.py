@@ -45,8 +45,24 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
 gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=False)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True)
-gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-                    ctgan=True, ctgan_log_freq=True)
-gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-                    ctgan=True, ctgan_log_freq=False)
+# gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+#                     ctgan=True, ctgan_log_freq=True)
+# gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+#                     ctgan=True, ctgan_log_freq=False)
+
+tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
+                quantile_transformation_int = True, quantile_rand_transformation = True,
+                noise_discrete_unif_max = noise_discrete_unif_max,
+                gumbel_temperature = 0.5, jit_compile=False)
+n_epochs_vec = np.arange(1,5).tolist() + np.arange(5, 10001, 5).tolist()
+n_synthetic_datasets_epochs_comparison = 1
+
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_epochs_fast(
+    tg_qtr,
+    dataset_dir = const.dir.hyperparams_tuning(),
+    subfolder = "tabGAN-qtr",
+    batch_size=batch_size,
+    n_synthetic_datasets = n_synthetic_datasets_epochs_comparison,
+    n_epochs_vec = n_epochs_vec,
+    overwrite_dataset=False)
 

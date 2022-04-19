@@ -5,7 +5,6 @@ import numpy as np
 
 def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_epochs_vec,
                                                         batch_size, n_synthetic_datasets,
-                                                        restart = False,
                                                         redo_n_epochs_vec = [],
                                                         subfolder=None,
                                                         overwrite_dataset=False,
