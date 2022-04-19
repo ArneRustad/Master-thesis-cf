@@ -7,6 +7,9 @@ from .tabGAN import TabGAN
 from .fast_nondominated_sort import fast_non_dominated_sort
 
 class TabGANcfmc(TabGAN):
+    """
+    Class for creating a tabular GAN that can generate counterfactual explanations through a post-processing step.
+    """
 
     def generate_counterfactuals(self, n_to_keep, pred_func, x_obs, wanted_range=None, n_to_generate=None,
                                  add_plausibility_objective=False, epsilon_num_percent=0.005, return_objectives=True):

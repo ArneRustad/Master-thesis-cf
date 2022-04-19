@@ -17,21 +17,20 @@ def generate_multiple_datasets_for_multiple_epochs_fast(tabGAN, dataset_dir, n_e
     n_epochs_vec.update(redo_n_epochs_vec)
     n_epochs_vec = np.sort(list(n_epochs_vec)).astype(np.int)
     print(n_epochs_vec)
-    if not subfolder is None:
-        dataset_dir = os.path.join(dataset_dir, subfolder)
 
     for j in tqdm(range(n_synthetic_datasets), desc = "Generated datasets", leave = True):
-        with tqdm(total =len(n_epochs_vec), desc = "Epoch subfolder creation", leave=False) as pbar:
+        last_n_epochs = 0
+        with tqdm(total=len(n_epochs_vec), desc = "Epoch subfolder creation", leave=False) as pbar:
             for i, n_epochs in enumerate(n_epochs_vec):
                 epoch_dataset_dir = os.path.join(dataset_dir, f"Epochs{n_epochs}")
                 epoch_dataset_path = os.path.join(epoch_dataset_dir, f"gen{j}.csv")
+
                 if overwrite_dataset or not os.path.exists(epoch_dataset_path):
                     if j == 0:
                         os.makedirs(epoch_dataset_dir, exist_ok = True)
                     if i == 0:
                         restart_training = True
                         n_epochs_diff = n_epochs
-                        last_n_epochs = 0
                     else:
                         restart_training = False
                         n_epochs_diff = n_epochs - last_n_epochs

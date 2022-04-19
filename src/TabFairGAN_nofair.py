@@ -28,6 +28,8 @@ parser.add_argument("--critic_repeat", help="Number of critic updates for each g
 parser.add_argument("--dim_latent_layer", help="Number of nodes in the latent noise layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
 parser.add_argument("--dim_hidden_layer", help="Number of nodes in the hidden layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
 parser.add_argument("--extra_hidden_layer_generator", help="Adds an extra hidden layer to the generator (added by Arne for easier comparison with the other models in his project thesis", type=bool, required=False, default=False)
+parser.add_argument("--progress_bar", help="Boolean for whether to include a progress bar of training (added by Arne)",
+                    type=bool, required=False, default=True)
 args = parser.parse_args()
 
 
@@ -277,7 +279,7 @@ def train(df, epochs=500, batch_size=64, fair_epochs=10, lamda=0.5):
     critic_losses = []
     generator_losses = []
     cur_step = 0
-    for i in tqdm(range(epochs), leave=False):
+    for i in tqdm(range(epochs), leave=False, disable=not args.progress_bar):
         # j = 0
 #         print("epoch {}".format(i + 1))
         ############################

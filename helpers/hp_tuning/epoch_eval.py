@@ -7,7 +7,14 @@ import numpy as np
 
 def evaluate_n_epochs_through_prediction(data_train, data_test, dataset_dir, n_epochs_vec, n_synthetic_datasets,
                                          save_dir = None, save_path = None, figsize = [14,8], legend_pos="best",
-                                         subfolder=None, incl_comparison_folder=True):
+                                         subfolder=None, incl_comparison_folder=True,
+                                         drop_na=False,
+                                         report_na=None,
+                                         print_csv_file_paths=False):
+
+    if report_na is None:
+        report_na=drop_na
+
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
@@ -25,7 +32,13 @@ def evaluate_n_epochs_through_prediction(data_train, data_test, dataset_dir, n_e
             curr_dataset_dir = os.path.join(dataset_dir, subfolder)
             for j in range(n_synthetic_datasets):
                 path = os.path.join(curr_dataset_dir, f"gen{j}.csv")
-                fake_train = pd.read_csv(path, index_col = 0)
+                fake_train = pd.read_csv(path, index_col=0)
+                if (report_na or drop_na) and (fake_train.isna().sum().sum() > 0):
+                    fake_train_wo_nan = fake_train.dropna()
+                    if report_na:
+                        print(f"{fake_train.shape[0] - fake_train_wo_nan.shape[0]} NA found at path: {path}")
+                    if drop_na:
+                        fake_train=fake_train_wo_nan
                 eval_result = fit_and_evaluate_xgboost(fake_train, data_test, categories = categories)
                 accuracy_vec[j] = eval_result[0]
                 auc_vec[j] = eval_result[1]

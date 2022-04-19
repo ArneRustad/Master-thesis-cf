@@ -4,10 +4,9 @@
 #SBATCH --time=3-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --constraint="P100|V100"
-#SBATCH --job-name="torch"
-#SBATCH --out=torch_job.out
-#SBATCH --error=torch_job.err
+#SBATCH --job-name="tabgan"
+#SBATCH --out=tabgan_job.out
+#SBATCH --error=tabgan_job.err
 #SBATCH --mail-user=<arner97@gmail.com>
 #SBATCH --mail-type=ALL
 
@@ -24,6 +23,7 @@ echo "Total of $SLURM_NTASKS cores"
 echo "GPUs allocated for the job: $SLURM_JOB_GPUS"
 
 module purge
-module load PyTorch/1.7.1-fosscuda-2020b 
+module load TensorFlow/2.4.1-fosscuda-2020b
+module load tensorflow-probability/0.12.1-fosscuda-2020b
 
-python gen_data_other_synthesizers.py
+python gen_data_tabgan.py

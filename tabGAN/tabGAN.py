@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 class TabGAN:
     """
-    Class for creating a tabular GAN that can also generate counterfactual explanations through a post-processing step.
+    Class for creating a tabular GAN that can generate synthetic datasets.
     """
     def __init__(self, data, batch_size=500, gan_method="WGAN-GP", wgan_lambda=10, pac=1,
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
