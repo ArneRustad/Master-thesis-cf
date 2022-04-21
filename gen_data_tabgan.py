@@ -5,6 +5,8 @@ import helpers
 import os
 import pandas as pd
 
+import numpy as np
+
 dataset_train_path = os.path.join(const.dir.data(), "df_adult_edited_train.csv")
 data_train = pd.read_csv(dataset_train_path)
 
@@ -54,8 +56,8 @@ tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = a
                 quantile_transformation_int = True, quantile_rand_transformation = True,
                 noise_discrete_unif_max = noise_discrete_unif_max,
                 gumbel_temperature = 0.5, jit_compile=False)
-n_epochs_vec = np.arange(1,5).tolist() + np.arange(5, 10001, 5).tolist()
-n_synthetic_datasets_epochs_comparison = 1
+n_epochs_vec = np.arange(1, 5).tolist() + np.arange(5, 10001, 5).tolist()
+n_synthetic_datasets_epochs_comparison = 5
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_epochs_fast(
     tg_qtr,

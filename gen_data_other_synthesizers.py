@@ -80,10 +80,13 @@ def gen_datasets_ctgan(data_train, pac=10, log_frequency=True, orig_implementati
             curr_path = os.path.join(dir_gen_data_ctgan, f"gen{i}.csv")
             if restart_all or method_name in restart_specific or not os.path.exists(curr_path):
                 model = ctgan_method(epochs=n_epochs, batch_size=batch_size, discriminator_steps=n_critics, verbose=0,
-                              cuda=True, embedding_dim=128, generator_dim=(256, 256), discriminator_dim=(256, 256),
-                              pac=pac, log_frequency=log_frequency
-                              )
-                model.fit(data_train)
+                                     cuda=True, embedding_dim=128, generator_dim=(256, 256),
+                                     discriminator_dim=(256, 256), pac=pac, log_frequency=log_frequency
+                                     )
+                if orig_implementation:
+                    model.fit(data_train, discrete_columns=data_train.select_dtypes(exclude=[np.number]).columns.values)
+                else:
+                    model.fit(data_train)
                 data_gen = model.sample(num_rows=data_train.shape[0])
                 data_gen.to_csv(curr_path, index=False)
             pbar.update(1)
