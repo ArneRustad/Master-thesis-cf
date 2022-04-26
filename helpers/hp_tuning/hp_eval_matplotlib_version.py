@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 from matplotlib.lines import Line2D
 import warnings
-import plotnine as p9
 
 
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
@@ -142,8 +141,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
     with tqdm(total=len(subfolders) * n_synthetic_datasets) as pbar:
         models = subfolders
-        result = pd.DataFrame({"Hyperparameters": models, "Value Accuracy": 0, "Value AUC": 0,
-                               "SD Accuracy": 0, "SD AUC": 0})
+        result = pd.DataFrame({"Hyperparameters": models, "Accuracy": 0, "AUC": 0, "SD Accuracy": 0, "SD AUC": 0})
         accuracy, auc, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
 
         if plot_observations:
@@ -180,15 +178,6 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             accuracy_std = np.std(accuracy_vec)
             auc_std = np.std(auc_vec)
             result.iloc[i, 1:] = [accuracy, auc, accuracy_std, auc_std]
-
-    result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
-    result_split_hps = pd.concat((
-        result_split_hps,
-        result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
-    ), axis=1)
-    result_long = pd.wide_to_long(result_split_hps, stubnames=["Value", "SD"], i=hyperparams_subname, j="Metric",
-                                  sep=" ", suffix="(AUC|Accuracy)").reset_index()
-    return result_long
 
     if plot_observations:
         obs_metric_dict = {"Accuracy": accuracy_obs, "AUC": auc_obs}

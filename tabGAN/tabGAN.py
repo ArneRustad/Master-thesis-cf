@@ -207,6 +207,7 @@ class TabGAN:
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
         self.data_num = data.select_dtypes(include=np.number)
         self.columns_num = self.data_num.columns
+        self.columns_num_mask = [col in self.columns_num for col in self.columns]
         self.n_columns_num = len(self.data_num.columns)
         self.columns_num_int_mask = self.data_num.dtypes.astype(str).str.contains("int")
         self.columns_int = self.columns_num[self.columns_num_int_mask]
@@ -236,6 +237,7 @@ class TabGAN:
         # and store the number of categories for each discrete variable
         self.data_discrete = data.select_dtypes(exclude=np.number)
         self.columns_discrete = self.data_discrete.columns
+        self.columns_discrete_mask = [col in self.columns_discrete for col in self.columns]
         self.n_columns_discrete = len(self.columns_discrete)
 
         self.oh_encoder = OneHotEncoder(sparse=False)
@@ -466,6 +468,11 @@ class TabGAN:
                                         critic=self.critic)
         self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, self.ckpt_dir, max_to_keep=self.ckpt_max_to_keep,
                                                        checkpoint_name=self.ckpt_name)
+
+    def split_transformed_data(self, transformed_data):
+        data_num_scaled = transformed_data[:, :self.n_columns_num]
+        data_discrete_oh = transformed_data[:, self.n_columns_num:]
+        return data_num_scaled, data_discrete_oh
 
     def inv_data_transform(self, data_num_scaled, data_discrete_oh):
         """
@@ -819,6 +826,8 @@ class TabGAN:
                 queries = self.generate_queries(n_batch, original_probs=True)
             else:
                 queries = self.generate_queries(n_batch)
+        else:
+            queries = None
 
         with tf.GradientTape() as gen_tape:
             gen_data_num, gen_data_discrete = self.generator(
@@ -836,7 +845,10 @@ class TabGAN:
             fake_output = self.critic(
                 [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
                 training=True)
-            loss_gen = self.calc_loss_generator(fake_output=fake_output)
+            loss_gen = self.calc_loss_generator(fake_output=fake_output,
+                                                gen_data_num=gen_data_num,
+                                                gen_data_discrete=gen_data_discrete,
+                                                queries=queries)
             if self.ctgan and self.ctgan_binomial_loss:
                 loss_gen -= tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
 
@@ -1071,6 +1083,7 @@ class TabGAN:
             epochs = np.arange(self.start_epoch, self.start_epoch + n_epochs + 1)
             fig_plot_time = plt.figure()
             plt.plot(epochs, time_epoch_vec)
+
             plt.title("Time for each epoch")
             plt.close(fig_plot_time)
             return_figures += (fig_plot_time,)
@@ -1096,7 +1109,7 @@ class TabGAN:
         if inv_scale:
             gen_data = self.inv_data_transform(gen_data_num, gen_data_discrete)
             if discrete_col is None:
-                color_dict = {"all": next(ax_plot2D._get_lines.prop_cycler)['color']}
+                color_dict = {"all": next(ax._get_lines.prop_cycler)['color']}
                 color = None
             else:
                 labels_unique = np.sort(np.unique(gen_data[discrete_col]))
