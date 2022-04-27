@@ -16,6 +16,8 @@ parser.add_argument("--redo", help="If activated, redo copying of all files even
 parser.add_argument("--redo_na", help="If activated, redo copying of all datasets containing NA rows even if dataset already exist at destination directory")
 parser.add_argument("--cache_dir", help="Directory where a pickle file with current activate path will be stored",
                     type=str, default="")
+parser.add_argument("--update_if_newer", help="Update file in destination directory if file in source directory is newer",
+                    type=bool, default=False)
 def extract_relative_filepaths(directory, filetype = ""):
     file_relpaths_of_interest = set()
     for dirpath, dirnames, filenames in os.walk(directory):
@@ -40,7 +42,7 @@ def check_for_na_row(path, dir="", filetypes_allowed=[".csv"]):
 
 def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=True, redo=False, redo_na=False,
                                    cache_dir="", cache_name="file_transfer_active_path.pkl", verbal=1,
-                                   add_rel_path=""):
+                                   add_rel_path="", update_if_newer=False):
     if add_rel_path:
         src_dir = os.path.join(src_dir, add_rel_path)
         dst_dir = os.path.join(dst_dir, add_rel_path)
@@ -67,6 +69,20 @@ def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=T
     else:
         file_relpaths_of_interest_dst = extract_relative_filepaths(dst_dir, filetype=filetype)
         file_relpaths_of_interest = file_relpaths_of_interest_src.difference(file_relpaths_of_interest_dst)
+        if update_if_newer:
+            file_relpaths_of_interest_present_in_both = file_relpaths_of_interest_src.intersection(
+                file_relpaths_of_interest_dst
+            )
+            mtime_src_files = [os.path.getmtime(os.path.join(src_dir, rel_path))
+                               for rel_path in file_relpaths_of_interest_present_in_both]
+            mtime_dst_files = [os.path.getmtime(os.path.join(dst_dir, rel_path))
+                                                for rel_path in file_relpaths_of_interest_present_in_both]
+            files_to_update_relpaths = {
+                rel_path if mtime_src > mtime_dst else None for rel_path, mtime_src, mtime_dst in
+                zip(file_relpaths_of_interest_present_in_both, mtime_src_files, mtime_dst_files)
+            }
+            files_to_update_relpaths.remove(None)
+            file_relpaths_of_interest = file_relpaths_of_interest.union(files_to_update_relpaths)
 
     if redo_na and not redo:
         if verbal >= 1:
@@ -97,4 +113,4 @@ def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=T
 if __name__ == "__main__":
     args = parser.parse_args()
     transfer_files_between_folders(args.src_dir, args.dst_dir, filetype=args.filetype, progress_bar=args.progress_bar,
-                                   cache_dir=args.cache_dir)
+                                   cache_dir=args.cache_dir, update_if_newer=args.update_if_newer)

@@ -19,6 +19,8 @@ parser.add_argument("--subfolder", help="Subfolder to conduct the synchronizatio
                     type=str, default="hyperparams_tuning")
 parser.add_argument("--redo_na", help="If activated, redo copying of all datasets containing NA rows even if dataset already exist at destination directory")
 parser.add_argument("--add_rel_path", help="Add relative path to existing paths", type=str, default="")
+parser.add_argument("--update_if_newer", help="Update file in destination directory if file in source directory is newer",
+                    type=bool, default=False)
 
 
 idun_dir = "V:"
@@ -33,7 +35,8 @@ if __name__ == "__main__":
     local_dir = os.path.join(local_dir, args.subfolder)
 
     kwargs = {"filetype": args.filetype, "progress_bar": args.progress_bar, "redo": args.redo, "redo_na": args.redo_na,
-              "verbal": args.verbal, "cache_dir": cache_dir, "add_rel_path": args.add_rel_path}
+              "verbal": args.verbal, "cache_dir": cache_dir, "add_rel_path": args.add_rel_path,
+              "update_if_newer": args.update_if_newer}
     if args.forwards:
         if args.verbal >= 1:
             print("Transferring files from Idun to Markov")

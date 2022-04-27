@@ -44,7 +44,7 @@ class TabGAN:
                  rmsprop_rho=0.9, rmsprop_momentum=0, rmsprop_centered=False,
                  ckpt_dir=None, ckpt_every=None, ckpt_max_to_keep=None, ckpt_name="ckpt_epoch",
                  noise_discrete_unif_max=0, use_query=None, np_data_fix=False,
-                 tf_data_use=True, tf_data_shuffle=True, tf_data_prefetch=True, tf_data_cache=False,
+                 tf_data_use=None, tf_data_shuffle=True, tf_data_prefetch=True, tf_data_cache=False,
                  tf_make_graph=True, tf_make_critic_step_graph=None, tf_make_gen_step_graph=None,
                  tf_make_train_step_graph=None, tf_make_numpy_data_step_graph=None,
                  tf_make_em_distance_graph=None, tf_make_generate_latent_graph=None,
@@ -66,6 +66,12 @@ class TabGAN:
             activation_function = dict_activation_function[activation_function]
         else:
             raise ValueError(f"The activation function {activation_function} is not (yet) implemented")
+
+        if tf_data_use is None:
+            if ctgan:
+                tf_data_use = False
+            else:
+                tf_data_use = True
 
         if use_query is None:
             use_query = True if ctgan else False
@@ -123,6 +129,8 @@ class TabGAN:
         if batch_size % pac != 0:
             raise ValueError(f"Batch size ({batch_size}) must be a multiple of pac size ({pac})." 
                              " Please change one or both of these parameters")
+        if ctgan and tf_data_use:
+            raise ValueError("tf_data_use=True is not yet implemented in combination with ctgan=True")
 
         # Initialize variables
         self.data = data
@@ -781,7 +789,7 @@ class TabGAN:
     def calc_loss_discr(self, real_output, fake_output):
         return - tf.reduce_mean(real_output) + tf.reduce_mean(fake_output)
 
-    def calc_loss_generator(self, fake_output):
+    def calc_loss_generator(self, fake_output, **kwargs):
         return - tf.reduce_mean(fake_output)
 
     def compute_em_distance_func(self):
