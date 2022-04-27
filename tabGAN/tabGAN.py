@@ -865,8 +865,8 @@ class TabGAN:
                 #          "total_loss:", tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
                 #          )
                 #loss_gen -= tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
-                vec_query_closeness = tf.minimum(tf.reduce_sum(queries * gen_data_discrete, axis=1), 0.99)
-                loss_gen -= tf.reduce_mean(tf.math.log(vec_query_closeness))
+                category_same_as_query = tf.minimum(tf.reduce_sum(queries * gen_data_discrete, axis=1), 0.99)
+                loss_gen -= tf.reduce_mean(tf.math.log(category_same_as_query))
 
 
         gradients_of_generator = gen_tape.gradient(loss_gen, self.generator.trainable_variables)
