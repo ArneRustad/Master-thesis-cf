@@ -85,9 +85,10 @@ def gen_datasets_ctgan(data_train, pac=10, log_frequency=True, orig_implementati
                                      )
                 if orig_implementation:
                     model.fit(data_train, discrete_columns=data_train.select_dtypes(exclude=[np.number]).columns.values)
+                    data_gen = model.sample(data_train.shape[0])
                 else:
                     model.fit(data_train)
-                data_gen = model.sample(num_rows=data_train.shape[0])
+                    data_gen = model.sample(num_rows=data_train.shape[0])
                 data_gen.to_csv(curr_path, index=False)
             pbar.update(1)
             print(pbar)
