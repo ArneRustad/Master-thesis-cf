@@ -11,8 +11,8 @@ import plotnine as p9
 
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
                                             save_dir=None, save_path=None, figsize=[14, 8], legend_pos=None,
-                                            plot_separate=False, subfolder=None,
-                                            plot_observations=False, plot_observation_marker="x", plot_sd=True,
+                                            plot_separate=True, subfolder=None,
+                                            plot_observations=False, plot_observation_marker="x", plot_sd=None,
                                             hyperparams_name="hyperparam",
                                             hyperparams_subname=None,
                                             x_scale="linear",
@@ -77,15 +77,26 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         else:
             legend_pos = "best"
 
-    if legend_title is None and hyperparams_subname is not None:
-        if n_hyperparams == 2:
-            legend_title = fr"{hyperparams_subname[1].replace('_', ' ').capitalize()} $=$"
-            if only_separate_by_color is None:
-                legend_title = [legend_title]
-        elif only_separate_by_color:
-            legend_title = fr"({', '.join(s.replace('_', ' ').capitalize() for s in hyperparams_subname[1:])}) $=$"
+    if plot_sd is None:
+        if n_hyperparams == 1:
+            plot_sd = True
         else:
-            legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname[1:]]
+            plot_sd = False
+
+    if legend_title is None:
+        if n_hyperparams == 1:
+            legend_title = [hyperparams_name.replace('_', ' ').capitalize()]
+        else:
+            if hyperparams_subname is None:
+                raise ValueError("If hyperparams_subname is None then legend_title can't also be None")
+            else:
+                if only_separate_by_color:
+                    legend_title = [
+                        hyperparams_subname[0].replace('_', ' ').capitalize(),
+                        fr"({', '.join(s.replace('_', ' ').capitalize() for s in hyperparams_subname[1:])}) $=$"
+                    ]
+                else:
+                    legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname[0:]]
 
     # Asserting valid input parameters (not yet complete)
     if n_hyperparams > 1:
@@ -181,153 +192,40 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             auc_std = np.std(auc_vec)
             result.iloc[i, 1:] = [accuracy, auc, accuracy_std, auc_std]
 
-    result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
+
+    result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=legend_title)
     result_split_hps = pd.concat((
         result_split_hps,
-        result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
+        result[["Value Accuracy", "Value AUC", "SD Accuracy", "SD AUC"]]
     ), axis=1)
-    result_long = pd.wide_to_long(result_split_hps, stubnames=["Value", "SD"], i=hyperparams_subname, j="Metric",
+    result_long = pd.wide_to_long(result_split_hps, stubnames=["Value", "SD"], i=legend_title, j="Metric",
                                   sep=" ", suffix="(AUC|Accuracy)").reset_index()
-    return result_long
 
-    if plot_observations:
-        obs_metric_dict = {"Accuracy": accuracy_obs, "AUC": auc_obs}
-    if combined_hp_tuning:
-        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
-        metric_list = ["Accuracy", "AUC"]
-        hp_main_vec = [hp_comb[0] for hp_comb in hyperparams_vec]
-        hp_sub_combs_vec = [tuple(hp_comb[i] for i in range(len(hp_comb)) if i != 0) for hp_comb in hyperparams_vec]
-        hp_unique_sub_combs_vec = sorted(set(hp_sub_combs_vec))
-
-        if only_separate_by_color:
-            if n_hyperparams == 2:
-                labels_vec = [labels[0] for labels in hp_unique_sub_combs_vec]
-            else:
-                labels_vec = hp_unique_sub_combs_vec
-
-            for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
-                curr_color = next(axes[0]._get_lines.prop_cycler)['color']
-                curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
-                curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
-                for j, ax in enumerate(axes):
-                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, metric_list[j]],
-                            label=labels_vec[i],
-                            color=curr_color, marker="o")
-            plt.plot()
-        else:
-            hp_sub_vecs = np.swapaxes(hp_sub_combs_vec, 0, 1)
-            color_dict = {hp_sub1: next(axes[0]._get_lines.prop_cycler)['color']
-                          for hp_sub1 in np.unique(hp_sub_vecs[0,])}
-            linestyles = ['-', '--', ':', '-.']
-            if hp_sub_vecs.shape[0] >= 2:
-                linestyles = linestyles[:min(np.unique(hp_sub_vecs[1]).shape[0], len(linestyles))]
-                linestyle_dict = {hp_sub2: linestyle
-                                  for hp_sub2, linestyle in zip(np.unique(hp_sub_vecs[1,]), linestyles)}
-            if hp_sub_vecs.shape[0] >= 3:
-                linewidths = np.linspace(1, 3, np.unique(hp_sub_vecs[2]).shape[0])
-                linewidth_dict = {hp_sub3: linewidth
-                                  for hp_sub3, linewidth in zip(np.unique(hp_sub_vecs[2,]), linewidths)}
-            for i, curr_hp_sub_combs in enumerate(hp_unique_sub_combs_vec):
-                curr_rows = [curr_hp_sub_combs == hp_sub_combs for hp_sub_combs in hp_sub_combs_vec]
-                curr_hp_main_vec = [hp_main for hp_main, bool in zip(hp_main_vec, curr_rows) if bool]
-
-                if hp_sub_vecs.shape[0] >= 2:
-                    curr_linestyle = linestyle_dict[curr_hp_sub_combs[1]]
-                else:
-                    curr_linestyle = linestyles[0]
-
-                if hp_sub_vecs.shape[0] >= 3:
-                    curr_linewidth = linewidth_dict[curr_hp_sub_combs[2]]
-                else:
-                    curr_linewidth = 1.5
-
-                for j, ax in enumerate(axes):
-                    plot(ax, curr_hp_main_vec, result.loc[curr_rows, metric_list[j]],
-                         label=curr_hp_sub_combs,
-                         color=color_dict[curr_hp_sub_combs[0]],
-                         linestyle=curr_linestyle,
-                         linewidth=curr_linewidth,
-                         marker="o")
-        for i, ax in enumerate(axes):
-            if not str_x_axis:
-                ax.set_xscale(x_scale)
-            ax.set_title(metric_list[i])
-            ax.set_xlabel(label_x_axis)
-
-            if bool_x_axis:
-                ax.set_xticks([0, 1])
-                ax.set_xticklabels(["False", "True"])
-
-            if separate_legends and not only_separate_by_color:
-                custom_lines_color = [Line2D([0], [0], color=color)
-                                     for color in color_dict.values()]
-                legend_color = ax.legend(custom_lines_color, color_dict.keys(), title=legend_title[0],
-                                         loc=legend_pos[0])
-                if hp_sub_vecs.shape[1] >= 2:
-                    custom_lines_linestyle = [Line2D([0], [0], color="black", linestyle=linestyle)
-                                             for linestyle in linestyle_dict.values()]
-                    legend_linestyle = ax.legend(custom_lines_linestyle, linestyle_dict.keys(),
-                                                 title=legend_title[1], loc=legend_pos[1])
-                    if hp_sub_vecs.shape[1] >= 3:
-                        custom_lines_linewidth = [Line2D([0], [0], color="black", linewidth=linewidth)
-                                                  for linewidth in linewidth_dict.values()]
-                        legend_linewidth = ax.legend(custom_lines_linewidth, linewidth_dict.keys(),
-                                                     title=legend_title[2], loc=legend_pos[2])
-                        ax.add_artist(legend_linestyle)
-                    ax.add_artist(legend_color)
-            else:
-                ax.legend(loc=legend_pos, title=legend_title)
-        plt.plot()
-
-        if result_table_split_hps and not hyperparams_subname is None:
-            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
-            result_split_hps = pd.concat((
-                result_split_hps,
-                result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
-            ), axis=1)
-            return result_split_hps
+    plot = p9.ggplot(result_long) + p9.aes(x=legend_title[0])
+    extra_mapping = {}
+    fill_mapping = {}
+    if n_hyperparams == 1 and not plot_separate:
+        extra_mapping["color"] = "Metric"
+        fill_mapping["fill"] = "Metric"
     else:
-        if plot_separate:
-            fig, axes = plt.subplots(nrows=1, ncols=2, figsize=figsize)
-            ax_accuracy, ax_auc = axes
-        else:
-            fig, ax = plt.subplots(1, figsize=figsize)
-            ax_accuracy = ax_auc = ax
+        plot += p9.facet_wrap("Metric", scales="free_y")
+        if n_hyperparams >= 2:
+            extra_mapping["color"] = legend_title[1]
+            fill_mapping["fill"] = legend_title[2]
+        if n_hyperparams >= 3 and not only_separate_by_color:
+            extra_mapping["linetype"] = legend_title[2]
+        if n_hyperparams >= 4 and not only_separate_by_color:
+            extra_mapping["size"] = legend_title[3]
+    plot += p9.geom_line(mapping=p9.aes(y="Value", **extra_mapping))
+    plot += p9.geom_point(mapping=p9.aes(y="Value", **extra_mapping))
 
-        color_accuracy = next(ax_accuracy._get_lines.prop_cycler)['color']
-        color_auc = next(ax_auc._get_lines.prop_cycler)['color']
-
-        for ax, metric, col in zip([ax_accuracy, ax_auc], ["Accuracy", "AUC"], [color_accuracy, color_auc]):
-            if not str_x_axis:
-                ax.set_xscale(x_scale)
-            ax.set_xlabel(label_x_axis)
-            plot(ax, hyperparams_vec, result[metric], label=metric, color=col, marker="o")
-            if plot_observations:
-                ax.scatter(np.repeat(hyperparams_vec, n_synthetic_datasets), obs_metric_dict[metric].flatten(),
-                           label=metric + " obs", color=col, marker=plot_observation_marker)
-            if plot_sd:
-                ax.fill_between(hyperparams_vec, result[metric] - result["SD " + metric],
-                                result[metric] + result["SD " + metric], label=fr"{metric} $\pm$ SD {metric}",
-                                alpha=0.5, color=color_accuracy)
-            if bool_x_axis:
-                print("hei")
-                ax.set_xticks([0, 1], ["False", "True"])
-            elif str_x_axis:
-
-                ax.set_x_ticks(np.arange())
-            if plot_separate:
-                ax.set_ylabel(metric)
-            ax.legend(loc=legend_pos)
-        if not save_path is None:
-            if not save_dir is None:
-                save_path = os.path.join(save_dir, save_path)
-            fig.savefig(save_path)
-
-        if result_table_split_hps and hyperparams_name is not None:
-            result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=hyperparams_subname)
-            result_split_hps = pd.concat((
-                result_split_hps,
-                result[["Accuracy", "AUC", "SD Accuracy", "SD AUC"]]
-            ), axis=1)
-            return result_split_hps
-    return result
+    if plot_sd:
+        plot += p9.geom_ribbon(mapping=p9.aes(ymin="Value - SD", ymax="Value + SD", **fill_mapping), alpha=0.5)
+    if x_scale == "log":
+        plot += p9.scale_x_log10()
+    theme_kwargs = {}
+    if np.unique(result_long[["Metric"]]).shape[0] > 1:
+        theme_kwargs["subplots_adjust"] = {'wspace': 0.15}
+    plot += p9.theme(figure_size=figsize, **theme_kwargs)
+    plot.draw()
+    return result_split_hps
