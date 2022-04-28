@@ -859,14 +859,17 @@ class TabGAN:
                                                 queries=queries)
             if self.ctgan and self.ctgan_binomial_loss:
                 # tf.print(tf.reduce_sum(queries * gen_data_discrete, axis=1),
-                #          "1 - max_val:", 1 - tf.math.reduce_max(tf.reduce_sum(queries * gen_data_discrete, axis=1)),
+                #          "min_val:", tf.math.reduce_min(tf.reduce_sum(queries * gen_data_discrete, axis=1)),
+                #          "sum:", tf.math.reduce_sum(tf.math.round(tf.reduce_sum(queries * gen_data_discrete, axis=1))),
                 #          tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)),
                 #          "min_val:", tf.math.reduce_min(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1))),
                 #          "total_loss:", tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
                 #          )
-                #loss_gen -= tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
-                category_same_as_query = tf.minimum(tf.reduce_sum(queries * gen_data_discrete, axis=1), 0.99)
-                loss_gen -= tf.reduce_mean(tf.math.log(category_same_as_query))
+                loss_gen -= tf.reduce_mean(tf.math.log(
+                    tf.reduce_sum(queries * gen_data_discrete, axis=1) + 1e-22
+                ))
+                #category_same_as_query = tf.minimum(tf.reduce_sum(queries * gen_data_discrete, axis=1), 0.99)
+                #loss_gen -= tf.reduce_mean(tf.math.log(category_same_as_query))
 
 
         gradients_of_generator = gen_tape.gradient(loss_gen, self.generator.trainable_variables)
