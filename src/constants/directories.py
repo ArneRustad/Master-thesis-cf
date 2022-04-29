@@ -20,6 +20,7 @@ if storage is None:
 
 data = lambda: os.path.join(project(), "data")
 images = lambda: os.path.join(project(), "images")
+images_hp = lambda: os.path.join(images(), "Hyperparameter tuning")
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
 hyperparams_tuning = lambda: os.path.join(storage(), "hyperparams_tuning")
@@ -29,3 +30,7 @@ py_objects = lambda: os.path.join(storage(), "python_objects")
 cf = lambda: os.path.join(storage(), "counterfactuals")
 data_temp = lambda: os.path.join(storage(), "data_temp")
 n_epochs_comparison = lambda: os.path.join(storage(), "n_epochs_comparison")
+
+for dir in [data, images, images_hp, data_gen, hyperparams_tuning, timers, models, py_objects, cf, data_temp,
+            n_epochs_comparison]:
+    os.makedirs(dir(), exist_ok=True)

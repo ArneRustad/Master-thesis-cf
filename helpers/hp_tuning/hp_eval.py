@@ -29,7 +29,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False,
-                                            remove_unnamed_cols=True):
+                                            remove_unnamed_cols=True,
+                                            metrics=["Accuracy", "AUC", "F1_0", "F1_1"]):
     if report_na is None:
         report_na=drop_na
 
@@ -154,16 +155,23 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
     with tqdm(total=len(subfolders) * n_synthetic_datasets) as pbar:
         models = subfolders
         result = pd.DataFrame({"Hyperparameters": models, "Value Accuracy": 0, "Value AUC": 0,
-                               "SD Accuracy": 0, "SD AUC": 0})
-        accuracy, auc, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
+                               "Value F1": 0, "Value F1_0": 0, "Value F1_1": 0,
+                               "SD Accuracy": 0, "SD AUC": 0, "SD F1": 0, "SD F1_0": 0, "SD F1_1": 0})
+        metrics_result, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
 
         if plot_observations:
             accuracy_obs = np.empty((len(subfolders), n_synthetic_datasets))
             auc_obs = np.empty((len(subfolders), n_synthetic_datasets))
+            f1_obs = np.empty((len(subfolders), n_synthetic_datasets))
+            f1_0_obs = np.empty((len(subfolders), n_synthetic_datasets))
+            f1_1_obs = np.empty((len(subfolders), n_synthetic_datasets))
 
         for i, subfolder in enumerate(subfolders):
             accuracy_vec = np.zeros(n_synthetic_datasets)
             auc_vec = np.zeros(n_synthetic_datasets)
+            f1_vec = np.zeros(n_synthetic_datasets)
+            f1_0_vec = np.zeros(n_synthetic_datasets)
+            f1_1_vec = np.zeros(n_synthetic_datasets)
             curr_dataset_dir = os.path.join(dataset_dir, subfolder)
             for j in range(n_synthetic_datasets):
                 path = os.path.join(curr_dataset_dir, f"gen{j}.csv")
@@ -179,28 +187,46 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                         print(f"{fake_train.shape[0] - fake_train_wo_nan.shape[0]} NA found at path: {path}")
                     if drop_na:
                         fake_train=fake_train_wo_nan
-                eval_result = fit_and_evaluate_xgboost(fake_train, data_test, categories=categories)
-                accuracy_vec[j] = eval_result[0]
-                auc_vec[j] = eval_result[1]
+                metrics_result = fit_and_evaluate_xgboost(fake_train, data_test, categories=categories)
+                accuracy_vec[j] = metrics_result["accuracy"]
+                auc_vec[j] = metrics_result["auc"]
+                f1_vec[j] = metrics_result["f1"]
+                f1_0_vec[j] = metrics_result["f1_0"]
+                f1_1_vec[j] = metrics_result["f1_1"]
                 pbar.update(1)
             if plot_observations:
                 accuracy_obs[i, :] = accuracy_vec
                 auc_obs[i, :] = auc_vec
             accuracy = np.mean(accuracy_vec)
             auc = np.mean(auc_vec)
+            f1 = np.mean(f1_vec)
+            f1_0 = np.mean(f1_0_vec)
+            f1_1 = np.mean(f1_1_vec)
+
             accuracy_std = np.std(accuracy_vec)
             auc_std = np.std(auc_vec)
-            result.iloc[i, 1:] = [accuracy, auc, accuracy_std, auc_std]
+            f1_std = np.std(f1_vec)
+            f1_0_std = np.std(f1_0_vec)
+            f1_1_std = np.std(f1_1_vec)
+            result.iloc[i, 1:] = [accuracy, auc, f1, f1_0, f1_1, accuracy_std, auc_std, f1_std, f1_0_std, f1_1_std]
 
 
     result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=legend_title)
     result_split_hps = pd.concat((
         result_split_hps,
-        result[["Value Accuracy", "Value AUC", "SD Accuracy", "SD AUC"]]
+        result.filter(regex="(Value|SD)")
     ), axis=1)
     result_long = pd.wide_to_long(result_split_hps, stubnames=["Value", "SD"], i=legend_title, j="Metric",
-                                  sep=" ", suffix="(AUC|Accuracy)").reset_index()
-
+                                  sep=" ", suffix="(AUC|Accuracy|F1|F1_0|F1_1)").reset_index()
+    unique_values_response = np.sort(np.unique(data_train["income"]))
+    result_long = result_long.query("Metric in @metrics")
+    if "F1_0" in metrics:
+        result_long["Metric"] = result_long["Metric"].str.replace("F1_0", "F1 score: " + unique_values_response[0])
+        metrics = [metric.replace("F1_0", "F1 score: " + unique_values_response[0]) for metric in metrics]
+    if "F1_1" in metrics:
+        result_long["Metric"] = result_long["Metric"].str.replace("F1_1", "F1 score: " + unique_values_response[1])
+        metrics = [metric.replace("F1_1", "F1 score: " + unique_values_response[1]) for metric in metrics]
+    result_long["Metric"] = pd.Categorical(result_long["Metric"], categories=metrics)
     plot = p9.ggplot(result_long) + p9.aes(x=legend_title[0])
     extra_mapping = {}
     fill_mapping = {}

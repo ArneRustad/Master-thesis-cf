@@ -1,6 +1,8 @@
 import numpy as np
 from xgboost import XGBClassifier
-from sklearn.metrics import normalized_mutual_info_score, adjusted_mutual_info_score, accuracy_score, roc_auc_score
+from sklearn.metrics import (normalized_mutual_info_score, adjusted_mutual_info_score,
+                             accuracy_score, roc_auc_score, f1_score
+                             )
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import tensorflow as tf
 
@@ -47,11 +49,12 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
     # Must use JSON for serialization, otherwise the information is lost
     clf.save_model("categorical-model.json")
     clf.predict(X_test)
-
     accuracy = accuracy_score(Y_test, clf.predict(X_test))
-    auc = roc_auc_score(Y_test, clf.predict_proba(X_test)[:,1])
-
+    auc = roc_auc_score(Y_test, clf.predict_proba(X_test)[:, 1])
+    f1_both = f1_score(Y_test, clf.predict(X_test), average=None, labels=[0, 1])
+    f1 = f1_score(Y_test, clf.predict(X_test), average="macro", labels=[0, 1], )
+    metrics = {"accuracy": accuracy, "auc": auc, "f1": f1, "f1_0": f1_both[0], "f1_1": f1_both[1]}
     if retcats:
-        return accuracy, auc, oh_encoder.categories_
+        return metrics, oh_encoder.categories_
     else:
-        return accuracy, auc
+        return metrics
