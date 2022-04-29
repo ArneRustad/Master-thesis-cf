@@ -35,21 +35,21 @@ def create_tabGAN_for_lr(opt_lr):
                     noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr
 
-helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_lr,
-    hyperparams_vec=lr_vec,
-    n_epochs=n_epochs_lr,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_lr_comparison,
-    restart=False,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "learning_rate",
-    add_comparison_folder=True,
-    overwrite_dataset=False
-)
+# helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+#     create_tabGAN_func=create_tabGAN_for_lr,
+#     hyperparams_vec=lr_vec,
+#     n_epochs=n_epochs_lr,
+#     dataset_dir=const.dir.hyperparams_tuning(),
+#     batch_size=batch_size,
+#     subfolder="tabGAN-qtr",
+#     n_synthetic_datasets=n_synthetic_datasets_lr_comparison,
+#     restart=False,
+#     redo_hyperparams_vec = [],
+#     plot_only_new_progress = True,
+#     hyperparams_name = "learning_rate",
+#     add_comparison_folder=True,
+#     overwrite_dataset=False
+# )
 
 n_critic_vec = np.arange(1,26)
 n_synthetic_datasets_n_critic_comparison = 10

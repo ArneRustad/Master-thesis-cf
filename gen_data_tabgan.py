@@ -22,7 +22,7 @@ n_synthetic_datasets = 25
 jit_compile = False
 
 def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False,
-                        ctgan=False, ctgan_log_freq=True):
+                        ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4):
     method_name = ""
     if ctgan:
         method_name += "c"
@@ -31,15 +31,20 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
         method_name += "-qt"
         if quantile_transformation_randomized:
             method_name += "r"
+    if pac > 1:
+        method_name += f"-pac{pac}"
     if ctgan and not ctgan_log_freq:
         method_name += "-log_freq=False"
+    if qtr_spread != 0.4:
+        method_name += f"-qtr_spread={qtr_spread}"
     print_header_method(method_name)
 
     tg = TabGAN(data_train, n_critic=n_critic, opt_lr=opt_lr, adam_beta1=adam_beta1,
                 quantile_transformation_int=quantile_transformation,
                 quantile_rand_transformation=quantile_transformation_randomized,
                 noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=jit_compile,
-                ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan))
+                ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
+                pac=pac)
 
     helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
                                        batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
@@ -49,8 +54,14 @@ gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transform
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=True)
-# gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-#                     ctgan=True, ctgan_log_freq=False)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=False)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=False, pac=2)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, ctgan_log_freq=False, pac=2)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, ctgan_log_freq=False, pac=1, qtr_spread=0.8)
 
 # tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
 #                 quantile_transformation_int = True, quantile_rand_transformation = True,
