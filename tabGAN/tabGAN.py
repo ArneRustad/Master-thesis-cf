@@ -512,15 +512,13 @@ class TabGAN:
         """
         if self.ctgan:
             if original_probs:
-                query_ids = tf.random.categorical(
-                    logits=tf.math.log(tf.expand_dims(self.query_original_probs, axis=0)),
-                    num_samples=n, dtype=tf.int64
-                )
+                query_probs = self.query_original_probs
             else:
-                query_ids = tf.random.categorical(
-                    logits=tf.math.log(tf.expand_dims(self.query_probs, axis=0)),
-                    num_samples=n, dtype=tf.int64
-                )
+                query_probs = self.query_probs
+            query_ids = tf.random.categorical(
+                logits=tf.math.log(tf.expand_dims(query_probs, axis=0)),
+                num_samples=n, dtype=tf.int64
+            )
             query_ids = tf.squeeze(query_ids, axis=0)
             drawn_queries = tf.py_function(lambda ids: self.queries_all[ids, :],
                                            inp=[query_ids], Tout=tf.float32)
