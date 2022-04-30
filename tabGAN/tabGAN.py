@@ -518,7 +518,7 @@ class TabGAN:
                 )
             else:
                 query_ids = tf.random.categorical(
-                    logits=tf.math.log(tf.expand_dims(self.query_original_probs, axis=0)),
+                    logits=tf.math.log(tf.expand_dims(self.query_probs, axis=0)),
                     num_samples=n, dtype=tf.int64
                 )
             query_ids = tf.squeeze(query_ids, axis=0)
@@ -701,6 +701,7 @@ class TabGAN:
         """
         Internal function for running training for a single batch.
         """
+        queries = None
         for i in range(self.n_critic):
             #data_batch_real = self.get_data_batch_real()
             if self.use_query:
@@ -711,18 +712,22 @@ class TabGAN:
                 else:
                     queries = self.generate_queries(n_batch)
                     data_batch_real = self.get_numpy_data_batch_real_from_queries(queries)
-                self.train_step_critic(data_batch_real, n_batch, queries=queries)
             else:
                 if self.tf_data_use:
                     data_batch_real = next(self.data_processed_iter)
                 else:
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
-                self.train_step_critic(data_batch_real, n_batch)
+            self.train_step_critic(data_batch_real, n_batch, queries=queries)
 
         if ret_loss:
             em_distance = self.compute_em_distance()
 
-        loss_gen = self.train_step_generator(n_batch)
+        if self.use_query:
+            if self.ctgan:
+                queries = self.generate_queries(n_batch, original_probs=False)
+            else:
+                queries = self.generate_queries(n_batch)
+        loss_gen = self.train_step_generator(n_batch, queries=queries)
         if ret_loss:
             return em_distance, loss_gen
         else:
@@ -827,15 +832,8 @@ class TabGAN:
         em_distance = self.calc_loss_discr(real_output=output_discr_real, fake_output=output_discr_fake)
         return em_distance
 
-    def train_step_generator_func(self, n_batch):
+    def train_step_generator_func(self, n_batch, queries=None):
         noise = self.generate_latent(n_batch)
-        if self.use_query:
-            if self.ctgan:
-                queries = self.generate_queries(n_batch, original_probs=True)
-            else:
-                queries = self.generate_queries(n_batch)
-        else:
-            queries = None
 
         with tf.GradientTape() as gen_tape:
             gen_data_num, gen_data_discrete = self.generator(

@@ -10,7 +10,7 @@ import plotnine as p9
 
 
 def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, hyperparams_vec, n_synthetic_datasets,
-                                            save_dir=None, save_path=None, figsize=[14, 8], legend_pos=None,
+                                            save_dir=None, save_path=None, figsize=[14, 8],
                                             plot_separate=True, subfolder=None,
                                             plot_observations=False, plot_observation_marker="x", plot_sd=None,
                                             hyperparams_name="hyperparam",
@@ -21,16 +21,13 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             legend_title=None,
                                             plot_type="line",
                                             only_separate_by_color=False,
-                                            separate_legends=False,
-                                            result_table_split_hps=False,
                                             label_x_axis=None,
-                                            bool_x_axis=False,
-                                            str_x_axis=None,
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False,
                                             remove_unnamed_cols=True,
-                                            metrics=["Accuracy", "AUC", "F1_0", "F1_1"]):
+                                            metrics=["Accuracy", "AUC", "F1_0", "F1_1"],
+                                            force_lines_for_bool_or_string_x_axis=True):
     if report_na is None:
         report_na=drop_na
 
@@ -62,21 +59,6 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                 raise ValueError("The number of hyperparameters given must be equal for all combinations.")
             hyperparams_abbreviation_vec.append("_" + str(hyperparams))
             n_hyperparams = 1
-    
-    if str_x_axis is None:
-        if n_hyperparams == 1:
-            str_x_axis = isinstance(hyperparams_vec[0], str)
-        else:
-            str_x_axis = isinstance(hyperparams_vec[0][0], str)
-        
-
-    # Create legend_pos variable if not entered as a parameter. Value depends on the bool separate_legends
-    # and number of hyperparameters
-    if legend_pos is None:
-        if separate_legends:
-            legend_pos = ["lower left", "lower center"][:n_hyperparams-1]
-        else:
-            legend_pos = "best"
 
     if plot_sd is None:
         if n_hyperparams == 1:
@@ -97,25 +79,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                         fr"({', '.join(s.replace('_', ' ').capitalize() for s in hyperparams_subname[1:])}) $=$"
                     ]
                 else:
-                    legend_title = [fr"{s.replace('_', ' ').capitalize()} $=$" for s in hyperparams_subname[0:]]
+                    legend_title = [fr"{s.replace('_', ' ').capitalize()}" for s in hyperparams_subname]
 
-    # Asserting valid input parameters (not yet complete)
-    if n_hyperparams > 1:
-        if (not only_separate_by_color) and separate_legends:
-            if (not isinstance(legend_pos, (list, tuple))) or len(legend_pos) != (n_hyperparams - 1):
-                raise ValueError(f"When separate_legends=True, then length of legend_pos must be equal to number of wanted legends ({n_hyperparams - 1})")
-            if legend_title is None:
-                legend_title = [None] * (n_hyperparams - 1)
-            elif (not isinstance(legend_title, (list, tuple))) or len(legend_title) != (n_hyperparams - 1):
-                    raise ValueError(f"When separate_legends=True, then legend_title must either be equal to None or a list of length equal to number of wanted legends ({n_hyperparams - 1})")
-        if only_separate_by_color:
-            if not isinstance(legend_pos, str):
-                raise ValueError("When using multiple types of hyperparameters in combination with only_separate_by_color=True, then parameter legend_pos must be a string.")
-            if not isinstance(legend_title, str):
-                raise ValueError("When using multiple types of hyperparameters in combination with only_separate_by_color=True, then parameter legend_title must be a string.")
-    else:
-        if separate_legends:
-            raise ValueError("When number of hyperparameters is equal to 1, then separate_legend must be set equal to False")
     if n_hyperparams > 4 and not only_separate_by_color:
         raise ValueError("Method not yet implemented for tuning more than four hyperparameters simultaneously if only_separate_by_color=False")
 
@@ -197,6 +162,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             if plot_observations:
                 accuracy_obs[i, :] = accuracy_vec
                 auc_obs[i, :] = auc_vec
+                f1_obs[i, :] = f1_vec
+                f1_0_obs[i, :] = f1_0_vec
+                f1_1_obs[i, :] = f1_1_vec
             accuracy = np.mean(accuracy_vec)
             auc = np.mean(auc_vec)
             f1 = np.mean(f1_vec)
@@ -212,6 +180,36 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
 
     result_split_hps = pd.DataFrame(data=hyperparams_vec, columns=legend_title)
+    if n_hyperparams > 1:
+        result_split_hps.iloc[:, 1:] = result_split_hps.iloc[:, 1:].astype("str")
+    bool_x_axis = False
+    str_x_axis = False
+    if result_split_hps.dtypes.values[0] == "bool" and force_lines_for_bool_or_string_x_axis:
+        bool_x_axis = True
+        result_split_hps.iloc[:, 0] = result_split_hps.iloc[:, 0].astype(int)
+    elif result_split_hps.dtypes.values[0] == "object" and force_lines_for_bool_or_string_x_axis:
+        str_x_axis = True
+        unique_str_x_values = np.sort(np.unique(result_split_hps.iloc[:, 0]))
+        dict_str_to_int = {unique_str_x_values[i]: i for i in range(unique_str_x_values.shape[0])}
+        result_split_hps.iloc[:, 0] = result_split_hps.iloc[:, 0].map(lambda x: dict_str_to_int[x])
+
+    if plot_observations:
+        list_dfs = []
+        obs_dataset_columns = [f"Observation{i}" for i in range(n_synthetic_datasets)]
+        for metric, metric_matrix in zip(["Accuracy", "AUC", "F1", "F1_0", "F1_1"],
+                                         [accuracy_obs, auc_obs, f1_obs, f1_0_obs, f1_1_obs]):
+            result_obs_single_metric = pd.DataFrame(metric_matrix,
+                                                    columns=obs_dataset_columns)
+            result_obs_single_metric = pd.concat((
+                result_split_hps,
+                result_obs_single_metric
+            ), axis=1)
+            result_obs_single_metric["Metric"] = metric
+            list_dfs.append(result_obs_single_metric)
+        result_obs = pd.concat(list_dfs, ignore_index=True)
+        result_obs_long = pd.wide_to_long(result_obs, stubnames="Observation", i=legend_title + ["Metric"],
+                                          j="Dataset", sep="").reset_index().query("Metric in @metrics")
+
     result_split_hps = pd.concat((
         result_split_hps,
         result.filter(regex="(Value|SD)")
@@ -220,12 +218,19 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                   sep=" ", suffix="(AUC|Accuracy|F1|F1_0|F1_1)").reset_index()
     unique_values_response = np.sort(np.unique(data_train["income"]))
     result_long = result_long.query("Metric in @metrics")
+
     if "F1_0" in metrics:
         result_long["Metric"] = result_long["Metric"].str.replace("F1_0", "F1 score: " + unique_values_response[0])
         metrics = [metric.replace("F1_0", "F1 score: " + unique_values_response[0]) for metric in metrics]
+        if plot_observations:
+            result_obs_long["Metric"] = result_obs_long["Metric"].str.replace("F1_0", "F1 score: " +
+                                                                              unique_values_response[0])
     if "F1_1" in metrics:
         result_long["Metric"] = result_long["Metric"].str.replace("F1_1", "F1 score: " + unique_values_response[1])
         metrics = [metric.replace("F1_1", "F1 score: " + unique_values_response[1]) for metric in metrics]
+        if plot_observations:
+            result_obs_long["Metric"] = result_obs_long["Metric"].str.replace("F1_1", "F1 score: " +
+                                                                      unique_values_response[1])
     result_long["Metric"] = pd.Categorical(result_long["Metric"], categories=metrics)
     plot = p9.ggplot(result_long) + p9.aes(x=legend_title[0])
     extra_mapping = {}
@@ -237,7 +242,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         plot += p9.facet_wrap("Metric", scales="free_y")
         if n_hyperparams >= 2:
             extra_mapping["color"] = legend_title[1]
-            fill_mapping["fill"] = legend_title[2]
+            fill_mapping["fill"] = legend_title[1]
         if n_hyperparams >= 3 and not only_separate_by_color:
             extra_mapping["linetype"] = legend_title[2]
         if n_hyperparams >= 4 and not only_separate_by_color:
@@ -247,11 +252,19 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
 
     if plot_sd:
         plot += p9.geom_ribbon(mapping=p9.aes(ymin="Value - SD", ymax="Value + SD", **fill_mapping), alpha=0.5)
+    if bool_x_axis:
+        plot += p9.scale_x_continuous(breaks=[0, 1], labels=["False", "True"], expand=[0.1, 0.1])
+    if str_x_axis:
+        plot += p9.scale_x_continuous(breaks=[i for i in range(unique_str_x_values.shape[0])],
+                                      labels=unique_str_x_values, expand=[0.1, 0.1])
     if x_scale == "log":
         plot += p9.scale_x_log10()
     theme_kwargs = {}
     if np.unique(result_long[["Metric"]]).shape[0] > 1:
         theme_kwargs["subplots_adjust"] = {'wspace': 0.15}
+    if plot_observations:
+        plot += p9.geom_point(mapping=p9.aes(y="Observation", **extra_mapping), data=result_obs_long,
+                              shape=plot_observation_marker)
     plot += p9.theme(figure_size=figsize, **theme_kwargs)
     plot.draw()
     return result_split_hps
