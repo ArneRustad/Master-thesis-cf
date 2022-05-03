@@ -25,143 +25,70 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-# tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
-#                 quantile_transformation_int = True, quantile_rand_transformation = False,
-#                 noise_discrete_unif_max = noise_discrete_unif_max,
-#                 gumbel_temperature=0.5, jit_compile=False)
-# n_epochs_vec = np.arange(1,5).tolist() + np.arange(5, 1001, 5).tolist()
-# n_synthetic_datasets_epochs_comparison = 25
-#
-# helpers.hp_tuning.generate_multiple_datasets_for_multiple_epochs_fast(
-#     tg_qtr,
-#     dataset_dir = const.dir.hyperparams_tuning(),
-#     subfolder = "tabGAN-qtr",
-#     batch_size=batch_size,
-#     n_synthetic_datasets = n_synthetic_datasets_epochs_comparison,
-#     n_epochs_vec = n_epochs_vec,
-#     redo_n_epochs_vec=[],
-#     overwrite_dataset=False,
-#     restart=False)
+activation_function_vec = [("LeakyReLU", False), ("GELU", False)]#, ("GELU", True)]
+n_synthetic_datasets_activation_function_comparison = 10
+n_epochs_activation_function = 100
 
-gumbel_temp_vec = np.round(np.linspace(0.001, 0.009, 9), 4).tolist()
-gumbel_temp_vec += np.round(np.linspace(0.01, 0.19, 19), 3).tolist()
-gumbel_temp_vec += np.round(np.linspace(0.2, 2, 19),2).tolist()
-n_synthetic_datasets_gumbel_temp_comparison = 10
-n_epochs_gumbel_temp = 100
-
-def create_tabGAN_for_gumbel_temp(gumbel_temp):
+def create_tabGAN_for_activation_function(activation_function, approximate):
     tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    gumbel_temperature=gumbel_temp)
+                    noise_discrete_unif_max = noise_discrete_unif_max, tf_data_use=True,
+                    activation_function=activation_function, gelu_approximate=approximate)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_gumbel_temp,
-    hyperparams_vec=gumbel_temp_vec,
-    n_epochs=n_epochs_gumbel_temp,
+    create_tabGAN_func=create_tabGAN_for_activation_function,
+    hyperparams_vec=activation_function_vec,
+    n_epochs=n_epochs_activation_function,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_gumbel_temp_comparison,
-    restart = False,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "gumbel_temp",
-    add_comparison_folder=True,
-    overwrite_dataset=False,
-    progress_bar_subprocess=True,
-)
-
-qtr_lbound_apply_vec = np.round(np.linspace(0.02, 0.2, 10),2).tolist() + np.round(np.linspace(0.002, 0.01, 5),3).tolist()
-n_synthetic_datasets_qtr_lbound_apply_comparison = 10
-n_epochs_qtr_lbound_apply = 100
-
-def create_tabGAN_for_qtr_lbound_apply(qtr_lbound_apply):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
-                    quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    qtr_lbound_apply=qtr_lbound_apply)
-    return tg_qtr
-
-helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_qtr_lbound_apply,
-    hyperparams_vec=qtr_lbound_apply_vec,
-    n_epochs=n_epochs_qtr_lbound_apply,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_qtr_lbound_apply_comparison,
+    n_synthetic_datasets=n_synthetic_datasets_activation_function_comparison,
     restart=False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "qtr_lbound_apply",
+    hyperparams_name = "activation",
+    hyperparams_subname=["function", "approximate"],
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,
+    progress_bar_subsubprocess=progress_bar_subsubprocess
 )
 
 
-rmsprop_rho_vec_partial = [0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-rmsprop_momentum_vec_partial = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999]
-rmsprop_centered_vec_partial = [False, True]
-rmsprop_vec = [(rho, momentum, centered) for rho in rmsprop_rho_vec_partial for momentum in rmsprop_momentum_vec_partial
-               for centered in rmsprop_centered_vec_partial]
-n_synthetic_datasets_rmsprop_comparison = 10
-n_epochs_rmsprop = 100
 
-def create_tabGAN_for_rmsprop(rmsprop_rho, rmsprop_momentum, rmsprop_centered):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, rmsprop_rho = rmsprop_rho, rmsprop_centered=rmsprop_centered,
-                    rmsprop_momentum=rmsprop_momentum, quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max)
-    return tg_qtr
+ctgan_vec = [(False, False, False, False)]
+ctgan_vec += [(bin_loss, True, log_freq, add_connection)
+              for bin_loss in [False, True]
+              for log_freq in [False, True]
+              for add_connection in [False, True]]
+n_synthetic_datasets_ctgan_comparison = 25
+n_epochs_ctgan = 100
 
-helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_rmsprop,
-    hyperparams_vec=rmsprop_vec,
-    n_epochs=n_epochs_rmsprop,
-    dataset_dir=const.dir.hyperparams_tuning(),
-    batch_size=batch_size,
-    subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_rmsprop_comparison,
-    restart = False,
-    redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "rmsprop",
-    hyperparams_subname = ["rho", "momentum", "centered"],
-    add_comparison_folder=True,
-    overwrite_dataset=False,
-    progress_bar_subprocess=True
-)
-
-noise_discrete_unif_max_vec_partial = np.arange(0, 0.21, 0.01).tolist() + [0.001, 0.003, 0.005, 0.007, 0.015, 0.025]
-gumbel_temp_vec_partial = [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1]
-noise_and_gumbel_temp_vec = [(noise_discrete_unif_max, gumbel_temp)
-                             for noise_discrete_unif_max in noise_discrete_unif_max_vec_partial
-                             for gumbel_temp in gumbel_temp_vec_partial]
-n_synthetic_datasets_noise_and_gumbel_temp_comparison = 10
-n_epochs_noise_and_gumbel_temp = 100
-
-def create_tabGAN_for_noise_and_gumbel_temp(noise_discrete_unif_max, gumbel_temp):
-    tg_qtr = TabGAN(data_train, n_critic = n_critic, optimizer="adam", opt_lr = opt_lr,
+def create_tabGAN_for_ctgan(ctgan, ctgan_log_frequency, ctgan_binomial_loss, add_connection_query_to_discrete):
+    if ctgan:
+        tf_data_use=False
+    else:
+        tf_data_use=True
+    tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
                     quantile_transformation_int = True, quantile_rand_transformation = True,
-                    noise_discrete_unif_max = noise_discrete_unif_max,
-                    gumbel_temperature=gumbel_temp)
+                    noise_discrete_unif_max = noise_discrete_unif_max, tf_data_use=tf_data_use,
+                    ctgan=ctgan, ctgan_log_frequency=ctgan_log_frequency,
+                    ctgan_binomial_loss=ctgan_binomial_loss,
+                    add_connection_query_to_discrete=add_connection_query_to_discrete)
     return tg_qtr
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-    create_tabGAN_func=create_tabGAN_for_noise_and_gumbel_temp,
-    hyperparams_vec=noise_and_gumbel_temp_vec,
-    n_epochs=n_epochs_noise_and_gumbel_temp,
+    create_tabGAN_func=create_tabGAN_for_ctgan,
+    hyperparams_vec=ctgan_vec,
+    n_epochs=n_epochs_ctgan,
     dataset_dir=const.dir.hyperparams_tuning(),
     batch_size=batch_size,
     subfolder="tabGAN-qtr",
-    n_synthetic_datasets=n_synthetic_datasets_noise_and_gumbel_temp_comparison,
-    restart = False,
+    n_synthetic_datasets=n_synthetic_datasets_ctgan_comparison,
+    restart = True,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
-    hyperparams_name = "oh_encoding_choices",
-    hyperparams_subname = ["noise_discrete_unif_max", "gumbel_temp"],
+    hyperparams_name = "categorical_query",
+    hyperparams_subname=["ctgan_binomial_loss", "ctgan", "log_frequency", "add_connection_query_to_discrete"],
     add_comparison_folder=True,
     overwrite_dataset=False,
     progress_bar_subprocess=True,

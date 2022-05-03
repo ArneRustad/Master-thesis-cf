@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=GPUQ
 #SBATCH --account=share-ie-imf #share-ie-imf
-#SBATCH --time=3-00:00:00
+#SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1

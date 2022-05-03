@@ -22,7 +22,10 @@ n_synthetic_datasets = 25
 jit_compile = False
 
 def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False,
-                        ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4):
+                        ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4, hp=False):
+    if hp and qtr_spread != 0.4:
+        raise ValueError("qtr_spread is changed when using hyperparameters found after tuning."
+                         " Thus qtr_spread can't be changed when entering hp=True.")
     method_name = ""
     if ctgan:
         method_name += "c"
@@ -37,6 +40,16 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
         method_name += "-log_freq=False"
     if qtr_spread != 0.4:
         method_name += f"-qtr_spread={qtr_spread}"
+
+    extra_tabGAN_params = {}
+    if hp:
+        method_name += "-hp"
+        qtr_spread = 0.8
+        noise_discrete_unif_max = 0.01
+        extra_tabGAN_params["activation_function"] = "GELU"
+        extra_tabGAN_params["gelu_approximate"] = True
+        extra_tabGAN_params["gumbel_temperature"] = 0.1
+
     print_header_method(method_name)
 
     tg = TabGAN(data_train, n_critic=n_critic, opt_lr=opt_lr, adam_beta1=adam_beta1,
@@ -44,24 +57,47 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
                 quantile_rand_transformation=quantile_transformation_randomized,
                 noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=jit_compile,
                 ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
-                pac=pac)
+                pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
 
     helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
                                        batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
 
+# hp-tuned
+# gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+#                     ctgan=True, ctgan_log_freq=True, hp=True)
+
+# tabGAN types
 gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=False)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, pac=1, qtr_spread=0.8)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, pac=2)
+# ctabGAN types with pac=1
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=True)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=False)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, pac=1, qtr_spread=0.8)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, pac=10)
+
+# ctabGAN types with pac>1
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=False, pac=2)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-                    ctgan=False, ctgan_log_freq=False, pac=2)
+                    ctgan=True, ctgan_log_freq=True, pac=2)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-                    ctgan=False, ctgan_log_freq=False, pac=1, qtr_spread=0.8)
+                    ctgan=True, ctgan_log_freq=False, pac=2, qtr_spread=0.8)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, pac=2, qtr_spread=0.8)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=False, pac=10, qtr_spread=0.8)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, pac=10, qtr_spread=0.8)
+
 
 # tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
 #                 quantile_transformation_int = True, quantile_rand_transformation = True,

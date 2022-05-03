@@ -35,21 +35,20 @@ def create_tabGAN_for_lr(opt_lr):
                     noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr
 
-# helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
-#     create_tabGAN_func=create_tabGAN_for_lr,
-#     hyperparams_vec=lr_vec,
-#     n_epochs=n_epochs_lr,
-#     dataset_dir=const.dir.hyperparams_tuning(),
-#     batch_size=batch_size,
-#     subfolder="tabGAN-qtr",
-#     n_synthetic_datasets=n_synthetic_datasets_lr_comparison,
-#     restart=False,
-#     redo_hyperparams_vec = [],
-#     plot_only_new_progress = True,
-#     hyperparams_name = "learning_rate",
-#     add_comparison_folder=True,
-#     overwrite_dataset=False
-# )
+helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+    create_tabGAN_func=create_tabGAN_for_lr,
+    hyperparams_vec=lr_vec,
+    n_epochs=n_epochs_lr,
+    dataset_dir=const.dir.hyperparams_tuning(),
+    batch_size=batch_size,
+    subfolder="tabGAN-qtr",
+    n_synthetic_datasets=n_synthetic_datasets_lr_comparison,
+    restart=False,
+    redo_hyperparams_vec = [],
+    hyperparams_name = "learning_rate",
+    add_comparison_folder=True,
+    overwrite_dataset=False
+)
 
 n_critic_vec = np.arange(1,26)
 n_synthetic_datasets_n_critic_comparison = 10
@@ -71,7 +70,6 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     n_synthetic_datasets=n_synthetic_datasets_n_critic_comparison,
     restart = False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
     hyperparams_name = "n_critic",
     add_comparison_folder=True,
     overwrite_dataset=False,
@@ -99,7 +97,6 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     n_synthetic_datasets=n_synthetic_datasets_qtr_spread_comparison,
     restart = False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
     hyperparams_name = "qtr_spread",
     add_comparison_folder=True,
     overwrite_dataset=False,
@@ -127,7 +124,6 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     n_synthetic_datasets=n_synthetic_datasets_noise_discrete_unif_max_comparison,
     restart = False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
     hyperparams_name = "noise_discrete_unif_max",
     add_comparison_folder=True,
     overwrite_dataset=False,
@@ -147,7 +143,6 @@ def create_tabGAN_for_adam_betas(adam_beta1, adam_beta2, adam_amsgrad):
                     adam_beta2=adam_beta2, quantile_transformation_int = True, quantile_rand_transformation = True,
                     noise_discrete_unif_max = noise_discrete_unif_max)
     return tg_qtr
-small_adam_betas_vec = (0.5, 0.5, True), (0.5, 0.7, False), (0.5, 0.7, True), (0.5, 0.9, False)
 
 helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     create_tabGAN_func=create_tabGAN_for_adam_betas,
@@ -159,7 +154,6 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     n_synthetic_datasets=n_synthetic_datasets_adam_betas_comparison,
     restart = False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
     hyperparams_name = "adam",
     hyperparams_subname = ["beta1", "beta2", "amsgrad"],
     add_comparison_folder=True,
@@ -189,7 +183,6 @@ helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
     n_synthetic_datasets=n_synthetic_datasets_sgd_comparison,
     restart = False,
     redo_hyperparams_vec = [],
-    plot_only_new_progress = True,
     hyperparams_name = "sgd",
     hyperparams_subname = ["momentum", "nesterov"],
     add_comparison_folder=True,

@@ -7,7 +7,7 @@ import os
 import subprocess
 from tqdm.auto import tqdm
 import torch
-from sdv.tabular import CTGAN, TVAE
+from sdv.tabular import CTGAN, TVAE, GaussianCopula
 import ctgan
 
 print(f"GPU available: {torch.cuda.is_available()}")
@@ -120,14 +120,43 @@ def gen_datasets_tvae(data_train, modified=False):
             pbar.update(1)
             print(pbar)
 
+def gen_datasets_gaussian_copula(data_train):
+    method_name = "GaussianCopula"
+
+    dir_gen_data_gaussian_copula = os.path.join(const.dir.data_gen(), method_name)
+    os.makedirs(dir_gen_data_gaussian_copula, exist_ok=True)
+    print_header_method(method_name)
+
+    with tqdm(total=n_synthetic_datasets) as pbar:
+        for i in range(n_synthetic_datasets):
+            curr_path = os.path.join(dir_gen_data_gaussian_copula, f"gen{i}.csv")
+            if restart_all or method_name in restart_specific or not os.path.exists(curr_path):
+                model = GaussianCopula()
+                model.fit(data_train)
+                data_gen = model.sample(num_rows=data_train.shape[0])
+                data_gen.to_csv(curr_path, index=False)
+            pbar.update(1)
+            print(pbar)
+
 
 gen_datasets_tabfairgan(data_train, tabFairGAN_mod=False)
 gen_datasets_tabfairgan(data_train, tabFairGAN_mod=True)
+
 gen_datasets_ctgan(data_train, pac=10, log_frequency=True)
+gen_datasets_ctgan(data_train, pac=10, log_frequency=False)
 gen_datasets_ctgan(data_train, pac=1, log_frequency=True)
+gen_datasets_ctgan(data_train, pac=1, log_frequency=False)
+gen_datasets_ctgan(data_train, pac=2, log_frequency=True)
+gen_datasets_ctgan(data_train, pac=2, log_frequency=False)
+
+gen_datasets_ctgan(data_train, pac=10, log_frequency=True, orig_implementation=True)
+gen_datasets_ctgan(data_train, pac=10, log_frequency=False, orig_implementation=True)
+gen_datasets_ctgan(data_train, pac=1, log_frequency=True, orig_implementation=True)
+gen_datasets_ctgan(data_train, pac=1, log_frequency=False, orig_implementation=True)
+gen_datasets_ctgan(data_train, pac=2, log_frequency=True, orig_implementation=True)
+gen_datasets_ctgan(data_train, pac=2, log_frequency=False, orig_implementation=True)
+
 gen_datasets_tvae(data_train, modified=False)
 gen_datasets_tvae(data_train, modified=True)
-gen_datasets_ctgan(data_train, pac=2, log_frequency=True)
-gen_datasets_ctgan(data_train, pac=10, log_frequency=False)
-gen_datasets_ctgan(data_train, pac=1, log_frequency=False)
-gen_datasets_ctgan(data_train, pac=10, log_frequency=True, orig_implementation=True)
+
+gen_datasets_gaussian_copula(data_train)
