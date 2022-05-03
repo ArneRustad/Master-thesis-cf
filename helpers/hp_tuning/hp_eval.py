@@ -266,5 +266,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         plot += p9.geom_point(mapping=p9.aes(y="Observation", **extra_mapping), data=result_obs_long,
                               shape=plot_observation_marker)
     plot += p9.theme(figure_size=figsize, **theme_kwargs)
+
+    if save_path is not None:
+        if save_dir is not None:
+            save_path = os.path.join(save_dir, save_path)
+        plot.save(filename=save_path, width=figsize[0], height=figsize[1], units="in")
     plot.draw()
     return result_split_hps
