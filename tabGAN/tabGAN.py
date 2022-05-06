@@ -30,6 +30,7 @@ class TabGAN:
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
+                 qt_distribution="normal",
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
@@ -52,6 +53,9 @@ class TabGAN:
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
         # Create variable defaults if needed
+        if n_quantiles_int > data.shape[0]:
+            n_quantiles_int = data.shape[0]
+
         activation_function = activation_function.lower()
         dict_activation_function = {
             "leakyrelu": LeakyReLU(alpha=leaky_relu_alpha),
@@ -169,6 +173,7 @@ class TabGAN:
         self.max_quantile_share = max_quantile_share
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
+        self.qt_distribution = qt_distribution
         self.n_quantiles_int = n_quantiles_int
         self.qt_n_subsample = qt_n_subsample
         self.initialized_gan = False
@@ -223,7 +228,7 @@ class TabGAN:
         self.columns_float = self.columns_num[np.logical_not(self.columns_num_int_mask)]
         if self.quantile_transformation_int:
             self.scaler_num = ColumnTransformer(transformers=[("float", StandardScaler(), self.columns_float), (
-            "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution='normal',
+            "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution=self.qt_distribution,
                                        subsample=self.qt_n_subsample),
             self.columns_int)])
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
@@ -463,7 +468,12 @@ class TabGAN:
                     curr_reference_range = curr_references[-1] - curr_references[0]
                     low = curr_references[0] + curr_reference_range * (0.5 - self.qtr_spread / 2)
                     high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_spread / 2)
-                    data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
+                    if self.qt_distribution == "normal":
+                        data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
+                    elif self.qt_distribution == "uniform":
+                        data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
+                    else:
+                        raise ValueError("qt_distribution must be equal to normal or uniform")
         return data
 
     def initialize_cptk(self):
@@ -602,7 +612,7 @@ class TabGAN:
         input_numeric = Input(shape=(self.n_columns_num * self.pac), name="Numeric_input")
         input_discrete = Input(shape=(self.n_columns_discrete_oh * self.pac), name="Discrete_input")
         if self.use_query:
-            query = Input(shape=(self.n_columns_query * self.pac), name="Query")
+            query = Input(shape=(self.n_columns_query * self.pac), name="Categorical Query" if self.ctgan else "Query")
             combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
             inputs = [input_numeric, input_discrete, query]
         else:
@@ -630,7 +640,7 @@ class TabGAN:
 
         latent = Input(shape=self.dim_latent, name="Latent")
         if self.use_query:
-            query = Input(shape=self.n_columns_query, name="Query")
+            query = Input(shape=self.n_columns_query, name="Categorical Query" if self.ctgan else "Query")
             combined1 = concatenate([latent, query], name="Concatenate_input")
             inputs = [latent, query]
         else:

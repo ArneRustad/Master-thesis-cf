@@ -8,9 +8,9 @@ import pandas as pd
 
 PROGRESS_BAR_SUBSUBPROCESS = False
 JIT_COMPILE_TRAIN_STEP = False
+N_EPOCHS = 100
 
 tabgan_args_dict = {
-    "n_epochs": 100,
     "batch_size": 500,
     "jit_compile_train_step": JIT_COMPILE_TRAIN_STEP,
     # WGAN parameters
@@ -24,7 +24,7 @@ tabgan_args_dict = {
     # Transformation parameters
     "quantile_rand_transformation": True,
     "quantile_transformation_int": True,
-    "qtr_spread": 0.4,
+    "qtr_spread": 0.8,
     "qtr_lbound_apply": 0.05,
     "max_quantile_share": 1,
     "n_quantiles_int": 1000,
