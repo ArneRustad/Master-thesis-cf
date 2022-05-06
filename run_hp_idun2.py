@@ -25,7 +25,7 @@ data_train = pd.read_csv(dataset_train_path)
 data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
-activation_function_vec = [("LeakyReLU", False), ("GELU", False)]#, ("GELU", True)]
+activation_function_vec = [("LeakyReLU", False), ("GELU", False), ("GELU", True)]
 n_synthetic_datasets_activation_function_comparison = 10
 n_epochs_activation_function = 100
 

@@ -16,13 +16,13 @@ batch_size = 500
 n_critic = 10
 opt_lr = 0.0002
 adam_beta1 = 0.5
-noise_discrete_unif_max = 0
 
 n_synthetic_datasets = 25
 jit_compile = False
 
 def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False,
-                        ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4, hp=False):
+                        ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4, hp=False,
+                        noise_discrete_unif_max=0):
     if hp and qtr_spread != 0.4:
         raise ValueError("qtr_spread is changed when using hyperparameters found after tuning."
                          " Thus qtr_spread can't be changed when entering hp=True.")
@@ -97,6 +97,9 @@ gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transform
                     ctgan=True, ctgan_log_freq=False, pac=10, qtr_spread=0.8)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=True, pac=10, qtr_spread=0.8)
+
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, hp=True)
 
 
 # tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,

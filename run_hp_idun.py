@@ -26,7 +26,7 @@ data_test = pd.read_csv(dataset_test_path)
 discrete_columns = data_train.columns[data_train.dtypes == "object"]
 
 lr_vec = [1e-1, 5e-2, 1e-2, 5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4, 5e-5, 1e-5]
-n_synthetic_datasets_lr_comparison = 10
+n_synthetic_datasets_lr_comparison = 5
 n_epochs_lr = 10000
 
 def create_tabGAN_for_lr(opt_lr):

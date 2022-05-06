@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --partition=GPUQ
 #SBATCH --account=share-ie-imf #share-ie-imf
-#SBATCH --time=3-00:00:00
+#SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:A100m80:1
 #SBATCH --job-name="hp2"
 #SBATCH --out=hp_tuning2.out
 #SBATCH --error=hp_tuning2.err
