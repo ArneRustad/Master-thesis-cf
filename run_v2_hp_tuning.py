@@ -1,48 +1,24 @@
-print("Starting hyperparameter tuning on Idun")
-import os
-import helpers.hp_tuning.hp_gen
-from tabGAN import TabGAN
+from v2_hp_tuning import hp_info
 from src import constants as const
-import numpy as np
-import pandas as pd
+import helpers
 
-PROGRESS_BAR_SUBSUBPROCESS = False
-JIT_COMPILE_TRAIN_STEP = False
-N_EPOCHS = 100
+hp_name_vec = ["qtr_spread"]
+hp_name_restart_vec = []
 
-tabgan_args_dict = {
-    "batch_size": 500,
-    "jit_compile_train_step": JIT_COMPILE_TRAIN_STEP,
-    # WGAN parameters
-    "n_critic": 10,
-    "wgan_lambda": 10,
-    # Optimizer parameters
-    "optimizer": "adam",
-    "opt_lr": 0.0002,
-    "adam_beta1": 0.5,
-    "adam_beta2": 0.999,
-    # Transformation parameters
-    "quantile_rand_transformation": True,
-    "quantile_transformation_int": True,
-    "qtr_spread": 0.8,
-    "qtr_lbound_apply": 0.05,
-    "max_quantile_share": 1,
-    "n_quantiles_int": 1000,
-    "qt_n_subsample": 1e5,
-    "noise_discrete_unif_max": 0.01,
-    # Neural network parameters
-    "gumbel_temperature": 0.1,
-    "activation_function": "GELU",
-    "gelu_approximate": True,
-    "dim_hidden": 256,
-    "dim_latent": 128,
-    # Conditional sampling parameters
-    "ctgan": True,
-    "ctgan_binomial_loss": True,
-    "ctgan_log_frequency": True,
-    # Packing parameters
-    "pac": 1
-}
+for hp_name in hp_name_vec:
+    print(hp_name)
+    curr_hp_info = hp_info[hp_name]
 
-dataset_train_path = os.path.join(const.dir.data(), "df_adult_edited_train.csv")
-data_train = pd.read_csv(dataset_train_path)
+    helpers.hp_tuning.generate_multiple_datasets_for_multiple_hyperparameters(
+        create_tabGAN_func=curr_hp_info["tabGAN_func"],
+        hyperparams_vec=curr_hp_info["vec"],
+        n_epochs=curr_hp_info["n_epochs"],
+        dataset_dir=const.dir.hp_tuning_v2(),
+        batch_size=curr_hp_info["batch_size"],
+        subfolder="tabGAN-qtr",
+        n_synthetic_datasets=curr_hp_info["n_synthetic_datasets"],
+        hyperparams_name=hp_name,
+        add_comparison_folder=True,
+        overwrite_dataset=hp_name in hp_name_restart_vec,
+        progress_bar_subprocess=True,
+    )

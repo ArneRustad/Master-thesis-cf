@@ -24,6 +24,7 @@ images_hp = lambda: os.path.join(images(), "Hyperparameter tuning")
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
 hyperparams_tuning = lambda: os.path.join(storage(), "hyperparams_tuning")
+hp_tuning_v2 = lambda: os.path.join(storage(), "hyperparams_tuning_v2")
 timers = lambda: os.path.join(storage(), "timers")
 models = lambda: os.path.join(storage(), "models")
 py_objects = lambda: os.path.join(storage(), "python_objects")
