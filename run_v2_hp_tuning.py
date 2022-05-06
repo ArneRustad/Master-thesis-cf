@@ -2,7 +2,9 @@ from v2_hp_tuning import hp_info
 from src import constants as const
 import helpers
 
-hp_name_vec = ["qtr_spread"]
+PROGRESS_BAR_SUBSUBPROCESS = False
+
+hp_name_vec = ["qtr_spread", "oh_encoding_choices"]
 hp_name_restart_vec = []
 
 for hp_name in hp_name_vec:
@@ -18,7 +20,8 @@ for hp_name in hp_name_vec:
         subfolder="tabGAN-qtr",
         n_synthetic_datasets=curr_hp_info["n_synthetic_datasets"],
         hyperparams_name=hp_name,
+        hyperparams_subname=curr_hp_info["hyperparams_subname"],
         add_comparison_folder=True,
         overwrite_dataset=hp_name in hp_name_restart_vec,
-        progress_bar_subprocess=True,
+        progress_bar_subprocess=PROGRESS_BAR_SUBSUBPROCESS,
     )
