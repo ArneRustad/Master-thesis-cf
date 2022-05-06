@@ -46,7 +46,7 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
         method_name += "-hp"
         qtr_spread = 0.8
         noise_discrete_unif_max = 0.01
-        extra_tabGAN_params["activation_function"] = "GELU"
+        extra_tabGAN_params["activation_function"] = "LeakyReLU"
         extra_tabGAN_params["gelu_approximate"] = True
         extra_tabGAN_params["gumbel_temperature"] = 0.1
 
@@ -63,8 +63,10 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
                                        batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
 
 # hp-tuned
-# gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-#                     ctgan=True, ctgan_log_freq=True, hp=True)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, hp=True)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=False, hp=True)
 
 # tabGAN types
 gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False)
@@ -97,9 +99,6 @@ gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transform
                     ctgan=True, ctgan_log_freq=False, pac=10, qtr_spread=0.8)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=True, ctgan_log_freq=True, pac=10, qtr_spread=0.8)
-
-gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
-                    ctgan=False, hp=True)
 
 
 # tg_qtr = TabGAN(data_train, n_critic = n_critic, opt_lr = opt_lr, adam_beta1 = adam_beta1,
