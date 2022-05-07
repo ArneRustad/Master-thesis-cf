@@ -34,6 +34,7 @@ class TabGAN:
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
+                 ctgan_binomial_distance_floor=0,
                  activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
                  elu_alpha=1.0,
                  add_dropout_critic=[], add_dropout_generator=[],
@@ -55,6 +56,14 @@ class TabGAN:
         # Create variable defaults if needed
         if n_quantiles_int > data.shape[0]:
             n_quantiles_int = data.shape[0]
+
+        if isinstance(ctgan_binomial_distance_floor, str):
+            if ctgan_binomial_distance_floor == "noise_discrete_unif_max":
+                ctgan_binomial_distance_floor = noise_discrete_unif_max
+            else:
+                ValueError("ctgan_binomial_distance_floor must be a float between 0 and 1 or the"
+                           "string 'noise_discrete_unif_max'. No other input to the parameter is allowed)")
+
 
         activation_function = activation_function.lower()
         dict_activation_function = {
@@ -135,6 +144,8 @@ class TabGAN:
                              " Please change one or both of these parameters")
         if ctgan and tf_data_use:
             raise ValueError("tf_data_use=True is not yet implemented in combination with ctgan=True")
+        if ctgan_binomial_distance_floor > 1 or ctgan_binomial_distance_floor < 0:
+            raise ValueError("ctgan_binomial_distance_floor must be an float between (and including) 0 and 1")
 
         # Initialize variables
         self.data = data
@@ -182,6 +193,7 @@ class TabGAN:
         self.ctgan = ctgan
         self.ctgan_log_frequency = ctgan_log_frequency
         self.ctgan_binomial_loss = ctgan_binomial_loss
+        self.ctgan_binomial_distance_floor = ctgan_binomial_distance_floor
         self.activation_function = activation_function
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
@@ -871,9 +883,10 @@ class TabGAN:
                 #          "min_val:", tf.math.reduce_min(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1))),
                 #          "total_loss:", tf.reduce_mean(tf.math.log(tf.reduce_sum(queries * gen_data_discrete, axis=1)))
                 #          )
-                loss_gen -= tf.reduce_mean(tf.math.log(
-                    tf.reduce_sum(queries * gen_data_discrete, axis=1) + 1e-22
-                ))
+                category_same_as_query = tf.reduce_sum(queries * gen_data_discrete, axis=1)
+                if self.ctgan_binomial_distance_floor > 0:
+                    category_same_as_query = tf.minimum(category_same_as_query, 1 - self.ctgan_binomial_distance_floor)
+                loss_gen -= tf.reduce_mean(tf.math.log(category_same_as_query + 1e-22))
                 #category_same_as_query = tf.minimum(tf.reduce_sum(queries * gen_data_discrete, axis=1), 0.99)
                 #loss_gen -= tf.reduce_mean(tf.math.log(category_same_as_query))
 
