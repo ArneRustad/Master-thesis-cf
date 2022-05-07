@@ -1,4 +1,3 @@
-print("Starting hyperparameter tuning on Idun")
 import os
 import helpers.hp_tuning.hp_gen
 from tabGAN import TabGAN
@@ -129,5 +128,93 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": ["noise_discrete_unif_max", "gumbel_temp"]
     }
 
+    noise_discrete_unif_max_vec_partial = np.round(np.arange(0, 0.21, 0.01), 3).tolist()
+    ctgan_binomial_distance_floor_partial = [0, 0.01, "noise_discrete_unif_max"]
+    noise_ctgan_vec = [(noise_discrete_unif_max, ctgan_binomial_distance_floor)
+                 for noise_discrete_unif_max in noise_discrete_unif_max_vec_partial
+                 for ctgan_binomial_distance_floor in ctgan_binomial_distance_floor_partial]
+
+    def create_tabGAN_for_noise_ctgan(noise_discrete_unif_max, ctgan_binomial_distance_floor):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["noise_discrete_unif_max"] = noise_discrete_unif_max
+        temp_args_dict["ctgan_binomial_distance_floor"] = ctgan_binomial_distance_floor
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["noise_ctgan"] = {
+        "vec": noise_ctgan_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_noise_ctgan,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["noise_discrete_unif_max", "ctgan_binomial_distance_floor"]
+    }
+
+    gumbel_temp_vec = np.round(np.arange(0.1, 1.01, 0.1), 3).tolist()
+    gumbel_temp_vec += np.round(np.arange(0.01, 0.1, 0.01), 3).tolist()
+
+    def create_tabGAN_for_gumbel_temp(gumbel_temperature):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["gumbel_temperature"] = gumbel_temperature
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["gumbel_temperature"] = {
+        "vec": gumbel_temp_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_gumbel_temp,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
+    add_connection_vec = [(False, False), (True, False), (False, True)]
+
+    def create_tabGAN_for_add_connection(add_connection_discrete_to_num, add_connection_num_to_discrete):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["add_connection_discrete_to_num"] = add_connection_discrete_to_num
+        temp_args_dict["add_connection_num_to_discrete"] = add_connection_num_to_discrete
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["add_connection"] = {
+        "vec": add_connection_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_add_connection,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["discrete_to_num", "num_to_discrete"]
+    }
+
+    add_connection_advanced_vec = [(0, "None")]
+    add_connection_advanced_vec += [(dim_hidden_connection, connection)
+                                    for connection in ["discrete_to_num", "num_to_discrete"]
+                                    for dim_hidden_connection in [1, 10, 25, 50, 100, 200]
+                                    ]
+
+    def create_tabGAN_for_add_connection_advanced(dim_hidden_connection, connection):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        if connection == "None":
+            pass
+        elif connection == "discrete_to_num":
+            temp_args_dict["add_connection_discrete_to_num"] = add_connection_discrete_to_num
+            temp_args_dict["dim_hidden_layer_discrete_to_num"] = dim_hidden_connection
+        elif connection == "num_to_discrete":
+            temp_args_dict["add_connection_num_to_discrete"] = add_connection_num_to_discrete
+            temp_args_dict["dim_hidden_layer_num_to_discrete"] = dim_hidden_connection
+        else:
+            raise ValueError("For the hyperparameter tuning add_connection_advanced then the connection parameter"
+                             " only takes as input 'None', 'discrete_to_num' or 'num_to_discrete'.")
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["add_connection_advanced"] = {
+        "vec": add_connection_advanced_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_add_connection_advanced,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["dim_hidden_connection", "connection"]
+    }
     return hp_info
 

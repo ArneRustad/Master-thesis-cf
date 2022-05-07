@@ -3,7 +3,6 @@
 #SBATCH --account=share-ie-imf #share-ie-imf
 #SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --job-name="v2hpc"
 #SBATCH --out=v2_hp_tuning_ctabGAN.out

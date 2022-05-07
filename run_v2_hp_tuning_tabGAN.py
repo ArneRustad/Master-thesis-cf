@@ -1,14 +1,21 @@
 from v2_hp_tuning import fetch_hp_info
 from src import constants as const
 import helpers
+import os
 
+print("Starting hyperparameter tuning on Idun")
 PROGRESS_BAR_SUBSUBPROCESS = False
 METHOD_NAME = "tabGAN-qtr"
 
 
 hp_info = fetch_hp_info(method=METHOD_NAME)
-hp_name_vec = ["qtr_spread", "oh_encoding_choices"]
+hp_name_vec = ["qtr_spread", "oh_encoding_choices", "add_connection", "add_connection_advanced"]
 hp_name_restart_vec = []
+
+slurm_array_task_id = int(os.getenv('SLURM_ARRAY_TASK_ID'))
+if slurm_array_task_id is not None:
+    hp_name_vec = hp_name_vec[(slurm_array_task_id-1):slurm_array_task_id]
+    print(f"Starting slurm array task {slurm_array_task_id}: hyperparameter tuning for {hp_name_vec[0]}")
 
 for hp_name in hp_name_vec:
     print("-"*10 + f"Hyperparameter tuning: {hp_name}" + "-"*10)

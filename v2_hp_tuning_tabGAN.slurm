@@ -3,7 +3,6 @@
 #SBATCH --account=share-ie-imf #share-ie-imf
 #SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --job-name="v2hp"
 #SBATCH --out=v2_hp_tuning_tabGAN.out
@@ -27,4 +26,4 @@ module purge
 module load TensorFlow/2.4.1-fosscuda-2020b
 module load tensorflow-probability/0.12.1-fosscuda-2020b
 
-python run_v2_hp_tuning_tabGAN.py
+python run_v2_hp_tuning_tabGAN.py $SLURM_ARRAY_TASK_ID
