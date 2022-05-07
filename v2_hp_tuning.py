@@ -129,7 +129,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
     }
 
     noise_discrete_unif_max_vec_partial = np.round(np.arange(0, 0.21, 0.01), 3).tolist()
-    ctgan_binomial_distance_floor_partial = [0, 0.01, "noise_discrete_unif_max"]
+    ctgan_binomial_distance_floor_partial = ["0", "0.01", "noise_discrete_unif_max"]
     noise_ctgan_vec = [(noise_discrete_unif_max, ctgan_binomial_distance_floor)
                  for noise_discrete_unif_max in noise_discrete_unif_max_vec_partial
                  for ctgan_binomial_distance_floor in ctgan_binomial_distance_floor_partial]
@@ -137,7 +137,10 @@ def fetch_hp_info(method="ctabGAN-qtr"):
     def create_tabGAN_for_noise_ctgan(noise_discrete_unif_max, ctgan_binomial_distance_floor):
         temp_args_dict = copy.deepcopy(method_args_dict)
         temp_args_dict["noise_discrete_unif_max"] = noise_discrete_unif_max
-        temp_args_dict["ctgan_binomial_distance_floor"] = ctgan_binomial_distance_floor
+        if ctgan_binomial_distance_floor == "noise_discrete_unif_max":
+            temp_args_dict["ctgan_binomial_distance_floor"] = ctgan_binomial_distance_floor
+        else:
+            temp_args_dict["ctgan_binomial_distance_floor"] = float(ctgan_binomial_distance_floor)
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr
 
