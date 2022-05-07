@@ -2,7 +2,7 @@ from v2_hp_tuning import fetch_hp_info
 from src import constants as const
 import helpers
 
-PROGRESS_BAR_SUBSUBPROCESS = False
+PROGRESS_BAR_SUBSUBPROCESS = True
 METHOD_NAME = "ctabGAN-qtr"
 
 
