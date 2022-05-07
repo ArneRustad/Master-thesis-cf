@@ -16,7 +16,7 @@ parser.add_argument("--local", help="Backup Markov on local drive", type=bool, d
 parser.add_argument("--redo", help="If activated, redo copying of all files even if they already exist at destination directory",
                     type=bool, default=False)
 parser.add_argument("--subfolder", help="Subfolder to conduct the synchronization and transfer of csv files",
-                    type=str, default="hyperparams_tuning")
+                    type=str, default="hyperparams_tuning_v2")
 parser.add_argument("--redo_na", help="If activated, redo copying of all datasets containing NA rows even if dataset already exist at destination directory")
 parser.add_argument("--add_rel_path", help="Add relative path to existing paths", type=str, default="")
 parser.add_argument("--update_if_newer", help="Update file in destination directory if file in source directory is newer",
