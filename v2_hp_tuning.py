@@ -99,7 +99,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
 
     hp_info["qtr_spread"] = {
         "vec": np.round(np.linspace(0, 1, 21), 2),
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_qtr_spread,
         "batch_size": BATCH_SIZE,
@@ -179,7 +179,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
 
     hp_info["add_connection"] = {
         "vec": add_connection_vec,
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_add_connection,
         "batch_size": BATCH_SIZE,
@@ -197,10 +197,10 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         if connection == "None":
             pass
         elif connection == "discrete_to_num":
-            temp_args_dict["add_connection_discrete_to_num"] = add_connection_discrete_to_num
+            temp_args_dict["add_connection_discrete_to_num"] = True
             temp_args_dict["dim_hidden_layer_discrete_to_num"] = dim_hidden_connection
         elif connection == "num_to_discrete":
-            temp_args_dict["add_connection_num_to_discrete"] = add_connection_num_to_discrete
+            temp_args_dict["add_connection_num_to_discrete"] = True
             temp_args_dict["dim_hidden_layer_num_to_discrete"] = dim_hidden_connection
         else:
             raise ValueError("For the hyperparameter tuning add_connection_advanced then the connection parameter"

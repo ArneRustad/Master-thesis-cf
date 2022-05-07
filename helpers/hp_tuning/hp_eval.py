@@ -29,9 +29,10 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             metrics=["Accuracy", "AUC", "F1_0", "F1_1"],
                                             force_lines_for_bool_or_string_x_axis=True):
     if report_na is None:
-        report_na=drop_na
+        report_na = drop_na
 
-    hyperparams_vec = sorted(hyperparams_vec)
+    print(hyperparams_vec)
+    hyperparams_vec = sorted(hyperparams_vec, key=lambda x: (str(type(x)), x))
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
