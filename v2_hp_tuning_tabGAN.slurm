@@ -6,8 +6,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --gpus-per-node=1
 #SBATCH --job-name="v2hp"
-#SBATCH --out=v2_hp_tuning.out
-#SBATCH --error=v2_hp_tuning.err
+#SBATCH --out=v2_hp_tuning_tabGAN.out
+#SBATCH --error=v2_hp_tuning_tabGAN.err
 #SBATCH --mail-user=<arner97@gmail.com>
 #SBATCH --mail-type=ALL
 
@@ -27,4 +27,4 @@ module purge
 module load TensorFlow/2.4.1-fosscuda-2020b
 module load tensorflow-probability/0.12.1-fosscuda-2020b
 
-python run_v2_hp_tuning.py
+python run_v2_hp_tuning_tabGAN.py

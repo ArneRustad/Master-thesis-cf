@@ -129,3 +129,5 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": ["noise_discrete_unif_max", "gumbel_temp"]
     }
 
+    return hp_info
+
