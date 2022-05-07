@@ -40,6 +40,7 @@ class TabGAN:
                  add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
+                 dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
                  add_connection_query_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
                  adam_amsgrad=False, sgd_nesterov=False,
@@ -203,6 +204,8 @@ class TabGAN:
         self.add_connection_discrete_to_num = add_connection_discrete_to_num
         self.add_connection_num_to_discrete = add_connection_num_to_discrete
         self.add_connection_query_to_discrete = add_connection_query_to_discrete
+        self.dim_hidden_layer_discrete_to_num = dim_hidden_layer_discrete_to_num
+        self.dim_hidden_layer_num_to_discrete = dim_hidden_layer_num_to_discrete
         self.use_query = use_query
         self.tf_data_use = tf_data_use
         self.tf_data_shuffle = tf_data_shuffle
@@ -671,7 +674,12 @@ class TabGAN:
         if not self.add_connection_discrete_to_num:
             output_numeric = Dense(self.n_columns_num, name="Numeric_output")(hidden)
         if self.add_connection_num_to_discrete:
-            potential_concat_hidden_and_num = concatenate((hidden, output_numeric),
+            if self.dim_hidden_layer_num_to_discrete > 0:
+                numeric_to_discrete = Dense(self.dim_hidden_layer_num_to_discrete,
+                                            name="Hidden_numeric_to_discrete")(output_numeric)
+            else:
+                numeric_to_discrete = output_numeric
+            potential_concat_hidden_and_num = concatenate((hidden, numeric_to_discrete),
                                                           name="Concatenate_hidden_and_numeric")
         else:
             potential_concat_hidden_and_num = hidden
@@ -698,12 +706,17 @@ class TabGAN:
 
 
         if self.add_connection_discrete_to_num:
-            concatenate_hidden_and_discrete = concatenate((hidden, output_discrete),
+            if self.dim_hidden_layer_discrete_to_num > 0:
+                discrete_to_numeric = Dense(self.dim_hidden_layer_discrete_to_num,
+                                            name="Hidden_discrete_to_numeric")(output_discrete)
+            else:
+                discrete_to_numeric = output_discrete
+            concatenate_hidden_and_discrete = concatenate((hidden, discrete_to_numeric),
                                                           name="Concatenate_hidden_and_discrete")
             output_numeric = Dense(self.n_columns_num, name="Numeric_output")(concatenate_hidden_and_discrete)
 
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
-        return (model)
+        return model
 
     def generate_latent_func(self, n):
         """
