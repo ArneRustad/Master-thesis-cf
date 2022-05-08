@@ -4,6 +4,7 @@
 #SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
+#SBATCH --constraint=P100
 #SBATCH --job-name="tabgan"
 #SBATCH --out=tabgan_job.out
 #SBATCH --error=tabgan_job.err

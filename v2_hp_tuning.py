@@ -1,5 +1,6 @@
 import os
 import helpers.hp_tuning.hp_gen
+import helpers.hp_tuning.hp_gen
 from tabGAN import TabGAN
 from src import constants as const
 import numpy as np
@@ -106,6 +107,15 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": None
     }
 
+    hp_info["qtr_spread_300_epochs"] = {
+        "vec": np.round(np.linspace(0, 1, 21), 2),
+        "n_synthetic_datasets": 25,
+        "n_epochs": 300,
+        "tabGAN_func": create_tabGAN_for_qtr_spread,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
     noise_discrete_unif_max_vec_partial = np.arange(0, 0.21, 0.01).tolist() + [0.001, 0.003, 0.005, 0.007, 0.015, 0.025]
     gumbel_temp_vec_partial = [0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1]
     noise_and_gumbel_temp_vec = [(noise_discrete_unif_max, gumbel_temp)
@@ -192,7 +202,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
     add_connection_advanced_vec = [(0, "None")]
     add_connection_advanced_vec += [(dim_hidden_connection, connection)
                                     for connection in ["discrete_to_num", "num_to_discrete"]
-                                    for dim_hidden_connection in [1, 10, 25, 50, 100, 200]
+                                    for dim_hidden_connection in [0, 1, 5, 10, 25, 50, 100, 200]
                                     ]
 
     def create_tabGAN_for_add_connection_advanced(dim_hidden_connection, connection):
@@ -218,6 +228,27 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "tabGAN_func": create_tabGAN_for_add_connection_advanced,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": ["dim_hidden_connection", "connection"]
+    }
+
+    activation_function_vec = [] #[ ("GELU", False), ("GELU", True)]
+    activation_function_vec += [(function, False) for function in ["ReLU", "LeakyReLU", "SquaredReLU", "ELU", "Swish",
+                                                                   "SELU"]]
+
+    def create_tabGAN_for_activation_function(activation_function, approximate):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["activation_function"] = activation_function
+        if activation_function.lower() == "gelu" and approximate:
+            temp_args_dict["gelu_approximate"] = True
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["activation_function"] = {
+        "vec": activation_function_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_activation_function,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["function", "approximate"]
     }
     return hp_info
 

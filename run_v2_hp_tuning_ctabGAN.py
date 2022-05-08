@@ -3,12 +3,13 @@ from src import constants as const
 import helpers
 import os
 
-PROGRESS_BAR_SUBSUBPROCESS = True
+PROGRESS_BAR_SUBSUBPROCESS = False
 METHOD_NAME = "ctabGAN-qtr"
 
 
 hp_info = fetch_hp_info(method=METHOD_NAME)
-hp_name_vec = ["qtr_spread", "noise_ctgan", "gumbel_temperature", "add_connection", "oh_encoding_choices"]
+hp_name_vec = ["qtr_spread", "qtr_spread_300_epochs", "noise_ctgan", "gumbel_temperature", "add_connection",
+               "oh_encoding_choices", "activation_function"]
 hp_name_restart_vec = []
 
 slurm_array_task_id = int(os.getenv('SLURM_ARRAY_TASK_ID'))

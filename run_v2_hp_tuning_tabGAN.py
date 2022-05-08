@@ -9,7 +9,8 @@ METHOD_NAME = "tabGAN-qtr"
 
 
 hp_info = fetch_hp_info(method=METHOD_NAME)
-hp_name_vec = ["qtr_spread", "oh_encoding_choices", "add_connection", "add_connection_advanced"]
+hp_name_vec = ["qtr_spread", "qtr_spread_300_epochs", "oh_encoding_choices", "add_connection",
+               "add_connection_advanced", "activation_function"]
 hp_name_restart_vec = []
 
 slurm_array_task_id = int(os.getenv('SLURM_ARRAY_TASK_ID'))
