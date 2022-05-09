@@ -873,9 +873,6 @@ class TabGAN:
             gen_data_num, gen_data_discrete = self.generator(
                 [noise, queries] if self.use_query else noise, training=True
             )
-            tf.print(gen_data_num)
-            tf.print(gen_data_discrete)
-
             if self.pac > 1:
                 n_batch_pac = n_batch // self.pac
                 if self.use_query:
@@ -891,7 +888,6 @@ class TabGAN:
                                                 gen_data_num=gen_data_num,
                                                 gen_data_discrete=gen_data_discrete,
                                                 queries=queries)
-            tf.print(loss_gen)
             if self.ctgan and self.ctgan_binomial_loss:
                 # tf.print(tf.reduce_sum(queries * gen_data_discrete, axis=1),
                 #          "min_val:", tf.math.reduce_min(tf.reduce_sum(queries * gen_data_discrete, axis=1)),
