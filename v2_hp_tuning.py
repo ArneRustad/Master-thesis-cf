@@ -230,7 +230,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": ["dim_hidden_connection", "connection"]
     }
 
-    activation_function_vec = [] #[ ("GELU", False), ("GELU", True)]
+    activation_function_vec = [("GELU", False)]  #, ("GELU", True)]
     activation_function_vec += [(function, False) for function in ["ReLU", "LeakyReLU", "SquaredReLU", "ELU", "Swish",
                                                                    "SELU", "LeakySquaredReLU"]]
 

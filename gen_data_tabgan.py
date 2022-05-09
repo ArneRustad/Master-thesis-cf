@@ -66,11 +66,12 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
                 ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
                 pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
     if hp2:
-        tg.train(300, progress_bar=True, restart_training=False)
+        #tg.train(300, progress_bar=True, restart_training=False)
         # helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs=5, subfolder=method_name,
         #                                    batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
-    else:
-        helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
+        # print(tg.sample_scaled())
+        # print(tg.sample())
+    helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
                                            batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
 
 
