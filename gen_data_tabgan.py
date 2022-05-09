@@ -54,7 +54,8 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
         if hp2:
             method_name += "2"
             extra_tabGAN_params["activation_function"] = "GELU"
-            extra_tabGAN_params["gelu_approximate"] = True
+            extra_tabGAN_params["gelu_approximate"] = False
+            extra_tabGAN_params["gumbel_temperature"] = 0.5
 
     print_header_method(method_name)
 

@@ -232,7 +232,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
 
     activation_function_vec = [] #[ ("GELU", False), ("GELU", True)]
     activation_function_vec += [(function, False) for function in ["ReLU", "LeakyReLU", "SquaredReLU", "ELU", "Swish",
-                                                                   "SELU"]]
+                                                                   "SELU", "LeakySquaredReLU"]]
 
     def create_tabGAN_for_activation_function(activation_function, approximate):
         temp_args_dict = copy.deepcopy(method_args_dict)
@@ -244,7 +244,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
 
     hp_info["activation_function"] = {
         "vec": activation_function_vec,
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_activation_function,
         "batch_size": BATCH_SIZE,

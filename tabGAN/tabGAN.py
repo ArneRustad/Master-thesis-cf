@@ -74,7 +74,8 @@ class TabGAN:
             "selu": selu,
             "swish": swish,
             "elu": ELU(alpha=elu_alpha),
-            "squaredrelu": lambda x: tf.math.square(relu(x))
+            "squaredrelu": lambda x: tf.math.square(relu(x)),
+            "leakysquaredrelu": lambda x: tf.where(x > 0, tf.math.square(relu(x)), leaky_relu_alpha * x)
         }
         if activation_function in dict_activation_function.keys():
             activation_function = dict_activation_function[activation_function]
