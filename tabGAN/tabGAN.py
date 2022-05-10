@@ -35,6 +35,8 @@ class TabGAN:
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
                  ctgan_binomial_distance_floor=0,
+                 train_step_critic_same_queries_for_critic_and_gen=True,
+                 train_step_critic_wgan_penalty_query_diversity=False,
                  activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
                  elu_alpha=1.0,
                  add_dropout_critic=[], add_dropout_generator=[],
@@ -196,6 +198,8 @@ class TabGAN:
         self.ctgan_log_frequency = ctgan_log_frequency
         self.ctgan_binomial_loss = ctgan_binomial_loss
         self.ctgan_binomial_distance_floor = ctgan_binomial_distance_floor
+        self.train_step_critic_same_queries_for_critic_and_gen = train_step_critic_same_queries_for_critic_and_gen
+        self.train_step_critic_wgan_penalty_query_diversity = train_step_critic_wgan_penalty_query_diversity
         self.activation_function = activation_function
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
@@ -630,10 +634,10 @@ class TabGAN:
         if self.use_query:
             query = Input(shape=(self.n_columns_query * self.pac), name="Categorical Query" if self.ctgan else "Query")
             combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
-            inputs = [input_numeric, input_discrete, query]
+            inputs = [[input_numeric, input_discrete], query]
         else:
             combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
-            inputs = [input_numeric, input_discrete]
+            inputs = [[input_numeric, input_discrete]]
         hidden = combined1
         if 0 in self.add_dropout_critic:
             hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
@@ -735,23 +739,29 @@ class TabGAN:
         """
         Internal function for running training for a single batch.
         """
-        queries = None
+        queries, queries2 = None, None
         for i in range(self.n_critic):
             #data_batch_real = self.get_data_batch_real()
             if self.use_query:
                 if self.ctgan:
-                    queries, query_ids = self.generate_queries(n_batch, ret_query_id=True,
-                                                               original_probs=False)
+                    queries, query_ids = self.generate_queries(n_batch, ret_query_id=True, original_probs=False)
                     data_batch_real = self.get_numpy_data_batch_real_from_queries(query_ids)
+                    if (self.train_step_critic_wgan_penalty_query_diversity or
+                            not self.train_step_critic_same_queries_for_critic_and_gen):
+                        queries2, query_ids2 = self.generate_queries(n_batch, ret_query_id=True, original_probs=False)
                 else:
                     queries = self.generate_queries(n_batch)
                     data_batch_real = self.get_numpy_data_batch_real_from_queries(queries)
+                    if (self.train_step_critic_wgan_penalty_query_diversity or
+                            not self.train_step_critic_same_queries_for_critic_and_gen):
+                        queries2 = self.generate_queries(n_batch)
             else:
                 if self.tf_data_use:
                     data_batch_real = next(self.data_processed_iter)
                 else:
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
-            self.train_step_critic(data_batch_real, n_batch, queries=queries)
+
+            self.train_step_critic(data_batch_real, n_batch, queries=queries, queries2=queries2)
 
         if ret_loss:
             em_distance = self.compute_em_distance()
@@ -768,15 +778,30 @@ class TabGAN:
             return None, None
 
 
-    def train_step_critic_func(self, data_batch_real, n_batch, queries=None):
+    def train_step_critic_func(self, data_batch_real, n_batch, queries=None, queries2=None):
+        if self.train_step_critic_same_queries_for_critic_and_gen:
+            queries_gen = queries
+            queries_critic = queries
+            if self.train_step_critic_wgan_penalty_query_diversity:
+                queries_wgan_penalty_diversity = queries2
+        else:
+            queries_critic = queries
+            queries_gen = queries2
+
         noise = self.generate_latent(n_batch)
-        noise_and_query = [noise, queries] if self.use_query else noise
+        noise_and_query = [noise, queries_gen] if self.use_query else noise
         data_batch_gen = self.generator(noise_and_query, training=True)
 
         n_batch_pac = n_batch // self.pac
         if self.pac > 1:
             if self.use_query:
-                queries = tf.reshape(queries, (n_batch_pac, self.n_columns_query * self.pac))
+                queries_gen = tf.reshape(queries_gen, (n_batch_pac, self.n_columns_query * self.pac))
+                if self.train_step_critic_same_queries_for_critic_and_gen:
+                    queries_critic = queries_gen
+                    if self.train_step_critic_wgan_penalty_query_diversity:
+                        queries_wgan_penalty_diversity = tf.reshape(queries_wgan_penalty_diversity, (n_batch_pac, self.n_columns_query * self.pac))
+                else:
+                    queries_critic = tf.reshape(queries_critic, (n_batch_pac, self.n_columns_query * self.pac))
             data_batch_gen = [
                 tf.reshape(data_batch_gen[0], (n_batch_pac, self.n_columns_num * self.pac)),
                 tf.reshape(data_batch_gen[1], (n_batch_pac, self.n_columns_discrete_oh * self.pac))
@@ -789,11 +814,11 @@ class TabGAN:
 
         with tf.GradientTape() as discr_tape:
             output_discr_real = self.critic(
-                [data_batch_real[0], data_batch_real[1], queries] if self.use_query else data_batch_real,
+                [data_batch_real, queries_critic] if self.use_query else [data_batch_real],
                 training=True
             )
             output_discr_fake = self.critic(
-                [data_batch_gen[0], data_batch_gen[1], queries] if self.use_query else data_batch_gen,
+                [data_batch_gen, queries_gen] if self.use_query else [data_batch_gen],
                 training=True
             )
             loss_discr = self.calc_loss_discr(real_output=output_discr_real,
@@ -803,7 +828,16 @@ class TabGAN:
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
             if self.use_query:
-                combined_data = [combined_data_num, combined_data_discrete, queries]
+                if self.train_step_critic_same_queries_for_critic_and_gen:
+                    if self.train_step_critic_wgan_penalty_query_diversity:
+                        combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
+                                           (1 - epsilon) * tf.concat(queries_wgan_penalty_diversity, axis=1)
+                    else:
+                        combined_queries = tf.concat(queries_gen, axis=1)
+                else:
+                    combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
+                                       (1 - epsilon) * tf.concat(queries_critic, axis=1)
+                combined_data = [combined_data_num, combined_data_discrete, combined_queries]
             else:
                 combined_data = [combined_data_num, combined_data_discrete]
 
@@ -858,10 +892,10 @@ class TabGAN:
             data_discrete_oh = self.data_discrete_oh
 
         output_discr_real = self.critic(
-            [data_num_scaled, data_discrete_oh, queries] if self.use_query
-            else [data_num_scaled, data_discrete_oh], training=True)
+            [[data_num_scaled, data_discrete_oh], queries] if self.use_query
+            else [[data_num_scaled, data_discrete_oh]], training=True)
         output_discr_fake = self.critic(
-            [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
+            [[gen_data_num, gen_data_discrete], queries] if self.use_query else [[gen_data_num, gen_data_discrete]],
             training=True)
         em_distance = self.calc_loss_discr(real_output=output_discr_real, fake_output=output_discr_fake)
         return em_distance
@@ -882,7 +916,7 @@ class TabGAN:
                                                shape=(n_batch_pac, self.n_columns_discrete_oh * self.pac))
 
             fake_output = self.critic(
-                [gen_data_num, gen_data_discrete, queries] if self.use_query else [gen_data_num, gen_data_discrete],
+                [[gen_data_num, gen_data_discrete], queries] if self.use_query else [[gen_data_num, gen_data_discrete]],
                 training=True)
             loss_gen = self.calc_loss_generator(fake_output=fake_output,
                                                 gen_data_num=gen_data_num,

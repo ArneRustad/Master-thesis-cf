@@ -56,7 +56,7 @@ def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=T
         if os.path.exists(cache_active_path_file):
             with open(cache_active_path_file, 'rb') as file:
                 potential_activate_path = pickle.load(file)
-            if potential_activate_path:
+            if potential_activate_path and os.path.exists(potential_activate_path):
                 os.remove(potential_activate_path)
                 if verbal >= 1:
                     print("Found and deleted unresolved copy from last transfer")

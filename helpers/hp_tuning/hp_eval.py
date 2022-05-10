@@ -22,6 +22,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                             plot_type="line",
                                             only_separate_by_color=False,
                                             label_x_axis=None,
+                                            x_tick_angle=0,
                                             drop_na=False,
                                             report_na=None,
                                             print_csv_file_paths=False,
@@ -31,8 +32,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
     if report_na is None:
         report_na = drop_na
 
-    print(hyperparams_vec)
-    hyperparams_vec = sorted(hyperparams_vec, key=lambda x: (str(type(x)), x))
+    hyperparams_vec = sorted(hyperparams_vec)
     if not subfolder is None:
         dataset_dir = os.path.join(dataset_dir, subfolder)
     if incl_comparison_folder:
@@ -192,6 +192,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         str_x_axis = True
         unique_str_x_values = np.sort(np.unique(result_split_hps.iloc[:, 0]))
         dict_str_to_int = {unique_str_x_values[i]: i for i in range(unique_str_x_values.shape[0])}
+        dict_int_to_str = {i: unique_str_x_values[i] for i in range(unique_str_x_values.shape[0])}
         result_split_hps.iloc[:, 0] = result_split_hps.iloc[:, 0].map(lambda x: dict_str_to_int[x])
 
     if plot_observations:
@@ -260,7 +261,7 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                                       labels=unique_str_x_values, expand=[0.1, 0.1])
     if x_scale == "log":
         plot += p9.scale_x_log10()
-    theme_kwargs = {}
+    theme_kwargs = {"axis_text_x": p9.element_text(angle=x_tick_angle)}
     if np.unique(result_long[["Metric"]]).shape[0] > 1:
         theme_kwargs["subplots_adjust"] = {'wspace': 0.15}
     if plot_observations:
@@ -273,4 +274,9 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
             save_path = os.path.join(save_dir, save_path)
         plot.save(filename=save_path, width=figsize[0], height=figsize[1], units="in")
     plot.draw()
+
+    if bool_x_axis:
+        result_split_hps.iloc[:, 0] = result_split_hps.iloc[:, 0].astype(bool)
+    elif str_x_axis:
+        result_split_hps.iloc[:, 0] = result_split_hps.iloc[:, 0].map(lambda x: dict_int_to_str[x])
     return result_split_hps
