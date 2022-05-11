@@ -276,7 +276,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
 
     hp_info["wgan_penalty_query"] = {
         "vec": wgan_penalty_query_vec,
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_wgan_penalty_query,
         "batch_size": BATCH_SIZE,
