@@ -30,10 +30,13 @@ class TabGANcf(TabGAN):
         self.query_generator_classifier_label = query_generator_classifier_label
         self.query_critic_instance = query_critic_instance
 
-        self.classifier_label = np.array(self.classifier(self.data))
-        print(self.classifier_label)
+        self.classifier_label = tf.reshape(self.classifier(self.data), shape=(self.nrow, 1))
         self.data_ix_classifier_0 = np.where(self.classifier_label <= 0.5)[0]
         self.data_ix_classifier_1 = np.where(self.classifier_label > 0.5)[0]
+
+        pos_queries_used_by_critic = np.where([self.query_critic_instance, self.query_critic_classifier_label])[0]
+        self.pos_queries_used_by_critic = pos_queries_used_by_critic
+        print(self.pos_queries_used_by_critic)
 
     def generate_queries(self, n):
         ix = tf.random.uniform(shape=[n], minval=0, maxval=self.data.shape[0], dtype=tf.int64)
@@ -47,17 +50,18 @@ class TabGANcf(TabGAN):
                            inp=[ix], Tout=[tf.float32, tf.float32]),
             axis=1
         )
-        if self.query_critic_classifier_label:
-            classifier_label = tf.py_function(lambda ixs: self.classifier_label[ixs],
-                                              inp=[ix], Tout=[tf.float32, tf.float32])
-            queries = [queries, classifier_label]
+        if self.query_critic_classifier_label or self.query_generator_classifier_label:
+            classifier_label = tf.reshape(tf.py_function(np.vectorize(lambda ixs: self.classifier_label[ixs]),
+                                              inp=[ix], Tout=tf.float32),
+                                          shape=(n, 1))
+            queries_list = [queries, classifier_label]
         else:
-            queries = [queries]
-        return queries
+            queries_list = [queries]
+        return queries_list
 
     def _python_get_numpy_data_batch_real_from_queries(self, queries):
         classifier_values = self.classifier(
-            self.inv_data_transform(*self.split_transformed_data(queries[0]))
+            self.inv_data_transform(*self.split_transformed_data(queries))
         )
         classifier_label = np.round(classifier_values).astype(np.int64)
 
@@ -67,7 +71,7 @@ class TabGANcf(TabGAN):
         ix_batch_0 = np.random.choice(self.data_ix_classifier_0, n_batch_0)
         ix_batch_1 = np.random.choice(self.data_ix_classifier_1, n_batch_1)
 
-        ix = np.empty(shape=queries[0].shape[0], dtype=np.int64)
+        ix = np.empty(shape=queries.shape[0], dtype=np.int64)
         ix[classifier_label == 0] = ix_batch_0
         ix[classifier_label == 1] = ix_batch_1
         ix = ix.astype(np.int64)
@@ -76,7 +80,7 @@ class TabGANcf(TabGAN):
 
     def get_numpy_data_batch_real_from_queries(self, queries):
         return tf.py_function(self._python_get_numpy_data_batch_real_from_queries,
-                              inp=[queries], Tout=[tf.float32, tf.float32])
+                              inp=[queries[0]], Tout=[tf.float32, tf.float32])
 
     def calc_loss_generator(self, fake_output, gen_data_num, gen_data_discrete, queries):
         query_instances_num = queries[0][:, :self.n_columns_num]
@@ -102,7 +106,7 @@ class TabGANcf(TabGAN):
         # loss += tf.reduce_sum(classifier_val_gen_data * fake_output / classifier_val_gen_data)
         loss_vec = tf.concat((loss_vec, [loss - tf.reduce_sum(loss_vec)]), axis=-1)
 
-        tf.print(loss_vec)
+        #tf.print(loss_vec)
         return loss
 
     def _eval_classifier_on_transformed_data(self, data_num_scaled, data_discrete_oh):
@@ -148,11 +152,10 @@ class TabGANcf(TabGAN):
             input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
             queries += [input_classifier_label]
             queries_combined += [input_classifier_label]
-
         if len(queries_combined) > 1:
             queries_combined = concatenate(queries_combined, name="Combining_queries")
         else:
-            queries_combined = queries[0]
+            queries_combined = queries_combined[0]
 
         combined1 = concatenate([input_numeric, input_discrete, queries_combined], name="Combining_input")
         inputs = [[input_numeric, input_discrete], queries]
@@ -179,14 +182,19 @@ class TabGANcf(TabGAN):
         latent = Input(shape=self.dim_latent, name="Latent")
         input_instance = Input(shape=((self.n_columns_num + self.n_columns_discrete_oh) * self.pac), name="Query_instance")
         queries = [input_instance]
+        combined_queries = [input_instance]
 
-        if self.query_generator_classifier_label:
+        if self.query_generator_classifier_label or self.query_critic_classifier_label:
             input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
             queries += [input_classifier_label]
-            combined_queries = concatenate(queries, axis=1, name="Combining_queries")
+            combined_queries += [input_classifier_label]
         else:
-            combined_queries = queries[0]
+            combined_queries = queries
 
+        if self.query_generator_classifier_label:
+            combined_queries = concatenate(combined_queries, name="Concatenate_queries")
+        else:
+            combined_queries = combined_queries[0]
         combined1 = concatenate([latent, combined_queries], name="Concatenate_input")
         inputs = [latent, queries]
 

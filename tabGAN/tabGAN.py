@@ -37,6 +37,8 @@ class TabGAN:
                  ctgan_binomial_distance_floor=0,
                  train_step_critic_same_queries_for_critic_and_gen=True,
                  train_step_critic_wgan_penalty_query_diversity=False,
+                 train_step_critic_query_wgan_penalty=True,
+                 query_input_to_critic=True,
                  activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
                  elu_alpha=1.0,
                  add_dropout_critic=[], add_dropout_generator=[],
@@ -200,6 +202,8 @@ class TabGAN:
         self.ctgan_binomial_distance_floor = ctgan_binomial_distance_floor
         self.train_step_critic_same_queries_for_critic_and_gen = train_step_critic_same_queries_for_critic_and_gen
         self.train_step_critic_wgan_penalty_query_diversity = train_step_critic_wgan_penalty_query_diversity
+        self.train_step_critic_query_wgan_penalty = train_step_critic_query_wgan_penalty
+        self.query_input_to_critic = query_input_to_critic
         self.activation_function = activation_function
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
@@ -232,6 +236,8 @@ class TabGAN:
         self.jit_compile_em_distance = jit_compile_em_distance
         self.jit_compile_arg_func = None # Will be initialized later depending on tensorflow version being less than 2.5 or above
         self.default_epochs_to_train = default_epochs_to_train
+
+        self.pos_queries_used_by_critic = [0]
 
         self.np_ix_start = tf.convert_to_tensor(0)
         self.np_ix_list = np.array([], dtype=np.int)
@@ -633,11 +639,14 @@ class TabGAN:
         input_discrete = Input(shape=(self.n_columns_discrete_oh * self.pac), name="Discrete_input")
         if self.use_query:
             query = Input(shape=(self.n_columns_query * self.pac), name="Categorical Query" if self.ctgan else "Query")
-            combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
             inputs = [[input_numeric, input_discrete], query]
         else:
-            combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
             inputs = [[input_numeric, input_discrete]]
+
+        if self.use_query and self.query_input_to_critic:
+            combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
+        else:
+            combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
         hidden = combined1
         if 0 in self.add_dropout_critic:
             hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
@@ -760,9 +769,7 @@ class TabGAN:
                     data_batch_real = next(self.data_processed_iter)
                 else:
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
-
             self.train_step_critic(data_batch_real, n_batch, queries=queries, queries2=queries2)
-
         if ret_loss:
             em_distance = self.compute_em_distance()
 
@@ -828,24 +835,43 @@ class TabGAN:
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
             if self.use_query:
-                if self.train_step_critic_same_queries_for_critic_and_gen:
-                    if self.train_step_critic_wgan_penalty_query_diversity:
-                        combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
-                                           (1 - epsilon) * tf.concat(queries_wgan_penalty_diversity, axis=1)
+                if self.train_step_critic_query_wgan_penalty:
+                    if self.train_step_critic_same_queries_for_critic_and_gen:
+                        if self.train_step_critic_wgan_penalty_query_diversity:
+                            combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
+                                               (1 - epsilon) * tf.concat(queries_wgan_penalty_diversity, axis=1)
+                        else:
+                            combined_queries = queries_gen
                     else:
-                        combined_queries = tf.concat(queries_gen, axis=1)
+                        combined_queries = [
+                            epsilon * query_gen + (1 - epsilon) * query_critic
+                            for query_gen, query_critic in zip(queries_gen, queries_critic)
+                        ]
+
+                    if all([pos == i for i, pos in enumerate(self.pos_queries_used_by_critic)]):
+                        combined_queries_used_by_critic = combined_queries
+                    else:
+                        combined_queries_used_by_critic = [combined_queries[i] for i in self.pos_queries_used_by_critic]
+
                 else:
-                    combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
-                                       (1 - epsilon) * tf.concat(queries_critic, axis=1)
-                combined_data = [combined_data_num, combined_data_discrete, combined_queries]
+                    combined_queries = queries_gen
+
+                combined_data = [[combined_data_num, combined_data_discrete], combined_queries]
+                if self.train_step_critic_query_wgan_penalty:
+                    combined_data_used_by_critic = [combined_data_num, combined_data_discrete,
+                                                    combined_queries_used_by_critic]
+                else:
+                    combined_data_used_by_critic = [combined_data_num, combined_data_discrete]
             else:
-                combined_data = [combined_data_num, combined_data_discrete]
+                print("jaaaaaaaaa")
+                combined_data = combined_data_used_by_critic = [[combined_data_num, combined_data_discrete]]
 
             with tf.GradientTape() as discr_tape_comb:
-                discr_tape_comb.watch(combined_data)
+                discr_tape_comb.watch(combined_data_used_by_critic)
                 loss_discr_combined = self.critic(combined_data, training=True)
-            combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data)
-            combined_gradients = tf.concat(combined_gradients, axis=1)
+            combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data_used_by_critic)
+            combined_gradients = tf.concat([tf.concat(grad_matrix, axis=1) for grad_matrix in combined_gradients],
+                                           axis=1)
 
             gradient_penalty = tf.norm(combined_gradients, axis=1) - 1
             if self.gan_method == "WGAN-SGP":
@@ -856,7 +882,6 @@ class TabGAN:
                                                   self.critic.trainable_variables)
         self.critic_optimizer.apply_gradients(
             zip(gradients_of_critic, self.critic.trainable_variables))
-
         return None
 
     def calc_loss_discr(self, real_output, fake_output):
