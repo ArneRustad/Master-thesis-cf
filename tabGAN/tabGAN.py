@@ -835,7 +835,7 @@ class TabGAN:
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
             if self.use_query:
-                if self.train_step_critic_query_wgan_penalty:
+                if self.train_step_critic_query_wgan_penalty or not self.query_input_to_critic:
                     if self.train_step_critic_same_queries_for_critic_and_gen:
                         if self.train_step_critic_wgan_penalty_query_diversity:
                             combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
@@ -857,13 +857,12 @@ class TabGAN:
                     combined_queries = queries_gen
 
                 combined_data = [[combined_data_num, combined_data_discrete], combined_queries]
-                if self.train_step_critic_query_wgan_penalty:
+                if self.train_step_critic_query_wgan_penalty and self.query_input_to_critic:
                     combined_data_used_by_critic = [combined_data_num, combined_data_discrete,
                                                     combined_queries_used_by_critic]
                 else:
                     combined_data_used_by_critic = [combined_data_num, combined_data_discrete]
             else:
-                print("jaaaaaaaaa")
                 combined_data = combined_data_used_by_critic = [[combined_data_num, combined_data_discrete]]
 
             with tf.GradientTape() as discr_tape_comb:
