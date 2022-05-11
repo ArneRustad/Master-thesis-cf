@@ -252,25 +252,44 @@ def fetch_hp_info(method="ctabGAN-qtr"):
     }
 
     wgan_penalty_query_vec = ["Same_queries_generator_and_critic", "Different_queries_generator_and_critic",
-                          "Same_queries_generator_and_critic_but_diverse_penalty"]
+                              "Same_queries_generator_and_critic_but_diverse_penalty",
+                              "Same_queries_generator_and_critic_but_no_query_input_to_critic",
+                              "Different_queries_generator_and_critic_but_no_query_input_to_critic",
+                              "Same_queries_generator_and_critic_but_no_queries_wgan_penalty",
+                              "Different_queries_generator_and_critic_but_no_queries_wgan_penalty"]
 
     def create_tabGAN_for_wgan_penalty_query(argument):
         temp_args_dict = copy.deepcopy(method_args_dict)
+        query_input_to_critic = True
+        train_step_critic_wgan_penalty_query_diversity = False
+        train_step_critic_query_wgan_penalty = True
         if argument == "Same_queries_generator_and_critic":
-            train_step_critic_same_queries_for_critic_and_gen = True,
-            train_step_critic_wgan_penalty_query_diversity = False
+            train_step_critic_same_queries_for_critic_and_gen = True
         elif argument == "Different_queries_generator_and_critic":
-            train_step_critic_same_queries_for_critic_and_gen = False,
-            train_step_critic_wgan_penalty_query_diversity = False
+            train_step_critic_same_queries_for_critic_and_gen = False
         elif argument == "Same_queries_generator_and_critic_but_diverse_penalty":
-            train_step_critic_same_queries_for_critic_and_gen = True,
+            train_step_critic_same_queries_for_critic_and_gen = True
             train_step_critic_wgan_penalty_query_diversity = True
+        elif argument == "Same_queries_generator_and_critic_but_no_query_input_to_critic":
+            train_step_critic_same_queries_for_critic_and_gen = True
+            query_input_to_critic = False
+        elif argument == "Different_queries_generator_and_critic_but_no_query_input_to_critic":
+            train_step_critic_same_queries_for_critic_and_gen = False
+            query_input_to_critic = False
+        elif argument == "Same_queries_generator_and_critic_but_no_queries_wgan_penalty":
+            train_step_critic_same_queries_for_critic_and_gen = True
+            train_step_critic_query_wgan_penalty = False
+        elif argument == "Different_queries_generator_and_critic_but_no_queries_wgan_penalty":
+            train_step_critic_same_queries_for_critic_and_gen = False
+            train_step_critic_query_wgan_penalty = False
         else:
             raise ValueError("Argument must be one of the following: 'Same_queries_generator_and_critic', "
                              "'Different_queries_generator_and_critic', or" 
                              "'Same_queries_generator_and_critic_but_diverse_penalty'")
         temp_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = train_step_critic_same_queries_for_critic_and_gen
         temp_args_dict["train_step_critic_wgan_penalty_query_diversity"] = train_step_critic_wgan_penalty_query_diversity
+        temp_args_dict["query_input_to_critic"] = query_input_to_critic
+        temp_args_dict["train_step_critic_query_wgan_penalty"] = train_step_critic_query_wgan_penalty
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr
 
