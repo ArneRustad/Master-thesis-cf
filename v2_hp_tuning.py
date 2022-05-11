@@ -163,7 +163,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": ["noise_discrete_unif_max", "ctgan_binomial_distance_floor"]
     }
 
-    gumbel_temp_vec = np.round(np.arange(0.1, 1.01, 0.1), 3).tolist()
+    gumbel_temp_vec = np.round(np.arange(0.1, 2.01, 0.1), 3).tolist()
     gumbel_temp_vec += np.round(np.arange(0.01, 0.1, 0.01), 3).tolist()
 
     def create_tabGAN_for_gumbel_temp(gumbel_temperature):
@@ -249,6 +249,38 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "tabGAN_func": create_tabGAN_for_activation_function,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": ["function", "approximate"]
+    }
+
+    wgan_penalty_query_vec = ["Same_queries_generator_and_critic", "Different_queries_generator_and_critic",
+                          "Same_queries_generator_and_critic_but_diverse_penalty"]
+
+    def create_tabGAN_for_wgan_penalty_query(argument):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        if argument == "Same_queries_generator_and_critic":
+            train_step_critic_same_queries_for_critic_and_gen = True,
+            train_step_critic_wgan_penalty_query_diversity = False
+        elif argument == "Different_queries_generator_and_critic":
+            train_step_critic_same_queries_for_critic_and_gen = False,
+            train_step_critic_wgan_penalty_query_diversity = False
+        elif argument == "Same_queries_generator_and_critic_but_diverse_penalty":
+            train_step_critic_same_queries_for_critic_and_gen = True,
+            train_step_critic_wgan_penalty_query_diversity = True
+        else:
+            raise ValueError("Argument must be one of the following: 'Same_queries_generator_and_critic', "
+                             "'Different_queries_generator_and_critic', or" 
+                             "'Same_queries_generator_and_critic_but_diverse_penalty'")
+        temp_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = train_step_critic_same_queries_for_critic_and_gen
+        temp_args_dict["train_step_critic_wgan_penalty_query_diversity"] = train_step_critic_wgan_penalty_query_diversity
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["wgan_penalty_query"] = {
+        "vec": wgan_penalty_query_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_wgan_penalty_query,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
     }
     return hp_info
 

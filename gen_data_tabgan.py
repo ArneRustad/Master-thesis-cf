@@ -65,7 +65,7 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
                 noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=jit_compile,
                 ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
                 pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
-    if hp2:
+    # if hp2:
         #tg.train(300, progress_bar=True, restart_training=False)
         # helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs=5, subfolder=method_name,
         #                                    batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
@@ -82,6 +82,8 @@ gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transform
                     ctgan=False, hp=True)
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
                     ctgan=False, hp2=True)
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, hp2=True)
 
 # tabGAN types
 gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False)
