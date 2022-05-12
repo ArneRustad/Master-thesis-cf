@@ -15,6 +15,7 @@ class TabGANcf(TabGAN):
     def __init__(self, data_train, classifier, only_gen_class=None,
                  query_critic_instance=True,
                  query_critic_classifier_label=False, query_generator_classifier_label=False,
+                 classifier_adjusted_wgan_loss_term=False,
                  **kwargs):
 
         super().__init__(data=data_train,
@@ -29,17 +30,41 @@ class TabGANcf(TabGAN):
         self.query_critic_classifier_label = query_critic_classifier_label
         self.query_generator_classifier_label = query_generator_classifier_label
         self.query_critic_instance = query_critic_instance
+        self.only_gen_class = only_gen_class
+        self.classifier_adjusted_wgan_loss_term = classifier_adjusted_wgan_loss_term
 
-        self.classifier_label = tf.reshape(self.classifier(self.data), shape=(self.nrow, 1))
-        self.data_ix_classifier_0 = np.where(self.classifier_label <= 0.5)[0]
-        self.data_ix_classifier_1 = np.where(self.classifier_label > 0.5)[0]
-
+        self.classifier_label = tf.round(tf.reshape(self.classifier(self.data), shape=(self.nrow, 1)))
+        self.data_ix_classifier_0 = np.where(self.classifier_label <= 0.5)[0].flatten()
+        self.data_ix_classifier_1 = np.where(self.classifier_label > 0.5)[0].flatten()
+        # self.data_ix_classifier_0 = tf.squeeze(tf.where(self.classifier_label <= 0.5))
+        # self.data_ix_classifier_1 = tf.squeeze(tf.where(self.classifier_label > 0.5))
+        self.wanted_classifier_label = 1 - self.classifier_label
+        self.wanted_classifier_label = self.wanted_classifier_label.numpy()
         pos_queries_used_by_critic = np.where([self.query_critic_instance, self.query_critic_classifier_label])[0]
         self.pos_queries_used_by_critic = pos_queries_used_by_critic
         print(self.pos_queries_used_by_critic)
 
+        if len(self.pos_queries_used_by_critic) == 0:
+            self.critic_use_query_input = False
+
+
+
     def generate_queries(self, n):
-        ix = tf.random.uniform(shape=[n], minval=0, maxval=self.data.shape[0], dtype=tf.int64)
+        if self.only_gen_class is None:
+            ix = tf.random.uniform(shape=[n], minval=0, maxval=self.data.shape[0], dtype=tf.int64)
+        elif self.only_gen_class == 0:
+            ix_indices = tf.random.uniform(shape=[n], minval=0, maxval=self.data_ix_classifier_1.shape[0],
+                                        dtype=tf.int64)
+            ix = tf.squeeze(tf.py_function(np.vectorize(lambda ixs: self.data_ix_classifier_1[ixs]),
+                                           inp=[ix_indices], Tout=tf.int64))
+        elif self.only_gen_class == 1:
+            ix_indices = tf.random.uniform(shape=[n], minval=0, maxval=self.data_ix_classifier_0.shape[0],
+                                           dtype=tf.int64)
+            ix = tf.squeeze(tf.py_function(np.vectorize(lambda ixs: self.data_ix_classifier_0[ixs]),
+                                           inp=[ix_indices], Tout=tf.int64))
+        else:
+            raise ValueError(f"The parameter only_gen_class must be one of'None', 1 or 2. You entered {only_gen_class}")
+
         # queries = tf.py_function(lambda ixs: [self.data_num_scaled[ixs, ], self.data_discrete_oh[ixs, ]],
         #                          inp=[ix], Tout=[tf.float32, tf.float32])
         # ix = tf.random.uniform(shape=[n], minval=0, maxval=self.data_ix_classifier_0.shape[0], dtype=tf.int64)
@@ -50,85 +75,85 @@ class TabGANcf(TabGAN):
                            inp=[ix], Tout=[tf.float32, tf.float32]),
             axis=1
         )
-        if self.query_critic_classifier_label or self.query_generator_classifier_label:
-            classifier_label = tf.reshape(tf.py_function(np.vectorize(lambda ixs: self.classifier_label[ixs]),
-                                              inp=[ix], Tout=tf.float32),
-                                          shape=(n, 1))
-            queries_list = [queries, classifier_label]
-        else:
-            queries_list = [queries]
-        return queries_list
+        #if self.query_critic_classifier_label or self.query_generator_classifier_label:
+        wanted_classifier_label = tf.reshape(
+            tf.py_function(np.vectorize(lambda ixs: self.wanted_classifier_label[ixs]), inp=[ix], Tout=tf.float32),
+            shape=(n, 1))
+        return [queries, wanted_classifier_label]
 
-    def _python_get_numpy_data_batch_real_from_queries(self, queries):
-        classifier_values = self.classifier(
-            self.inv_data_transform(*self.split_transformed_data(queries))
-        )
-        classifier_label = np.round(classifier_values).astype(np.int64)
-
-        n_batch_1 = np.sum(classifier_label == 1)
-        n_batch_0 = np.sum(classifier_label == 0)
+    def _python_get_numpy_data_batch_real_from_queries(self, queries, wanted_classifier_label):
+        n_batch_1 = np.sum(wanted_classifier_label > 0.5)
+        n_batch_0 = np.sum(wanted_classifier_label < 0.5)
 
         ix_batch_0 = np.random.choice(self.data_ix_classifier_0, n_batch_0)
         ix_batch_1 = np.random.choice(self.data_ix_classifier_1, n_batch_1)
 
         ix = np.empty(shape=queries.shape[0], dtype=np.int64)
-        ix[classifier_label == 0] = ix_batch_0
-        ix[classifier_label == 1] = ix_batch_1
+        ix[wanted_classifier_label <= 0.5] = ix_batch_0
+        ix[wanted_classifier_label > 0.5] = ix_batch_1
         ix = ix.astype(np.int64)
-
-        return [self.data_num_scaled[ix, ], self.data_discrete_oh[ix, ]]
+        
+        return_object = [self.data_num_scaled[ix, ], self.data_discrete_oh[ix, ]]
+        return return_object
 
     def get_numpy_data_batch_real_from_queries(self, queries):
         return tf.py_function(self._python_get_numpy_data_batch_real_from_queries,
-                              inp=[queries[0]], Tout=[tf.float32, tf.float32])
+                              inp=[queries[0], tf.squeeze(queries[1])], Tout=[tf.float32, tf.float32])
 
-    def calc_loss_generator(self, fake_output, gen_data_num, gen_data_discrete, queries):
+    def calc_loss_generator(self, fake_output, gen_data_num, gen_data_discrete, queries, gen_tape):
         query_instances_num = queries[0][:, :self.n_columns_num]
         query_instances_discrete = queries[0][:, self.n_columns_num:]
-        # Standard WGAN loss term
-        loss = - tf.reduce_mean(fake_output)
+        wanted_classifier_label = tf.squeeze(queries[1])
+        if self.classifier_adjusted_wgan_loss_term:
+            # Classifier adjusted loss term for WGAN
+            classifier_val_gen_data = self.eval_classifier_on_transformed_data(gen_data_num, gen_data_discrete)
+            # def te(data_num_scaled, data_discrete_oh):
+            #     data = self.inv_data_transform(data_num_scaled, data_discrete_oh)
+            #     s = self.classifier(data)
+            #     return tf.cast(s, tf.float32)
+            with gen_tape.stop_recording():
+                classifier_val_gen_data = tf.where(wanted_classifier_label <= 0.5,
+                                                   1 - classifier_val_gen_data, classifier_val_gen_data)
+                #tf.print(classifier_val_gen_data)
+                sum_classifier_val_gen_data = tf.reduce_sum(classifier_val_gen_data)
+            loss = - tf.reduce_sum(classifier_val_gen_data * tf.squeeze(fake_output) / sum_classifier_val_gen_data)
+        else:
+            # Standard WGAN loss term
+            loss = - tf.reduce_mean(fake_output)
         loss_vec = [loss]
         # Distance 1 norm loss term
         loss += tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_num - gen_data_num), axis=1))
         loss += tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_discrete - gen_data_discrete), axis=1))
         loss_vec = tf.concat((loss_vec, [loss - loss_vec[0]]), axis=-1)
-        # Classifier loss term
-        # queries_inv_transformed = tf.py_function(lambda query_num, query_discrete:
-        #                                          self.inv_data_transform(query_num, query_discrete),
-        #                                          inp=[query_instances_num, uery_instances_discrete],
-        #                                          Tout=[tf.float32, tf.float32])
-        # class_queries = tf.cast(
-        #     tf.where(self.eval_classifier_on_transformed_data(query_instances_num, query_instances_discrete) < 0.5, 0, 1),
-        #     tf.int32
-        # )
-        # classifier_val_gen_data =  self.eval_classifier_on_transformed_data(gen_data_num, gen_data_discrete)
-        # classifier_val_gen_data = tf.where(class_queries == 1, 1 - classifier_val_gen_data, 0)
-        # loss += tf.reduce_sum(classifier_val_gen_data * fake_output / classifier_val_gen_data)
-        loss_vec = tf.concat((loss_vec, [loss - tf.reduce_sum(loss_vec)]), axis=-1)
-
         #tf.print(loss_vec)
         return loss
 
     def _eval_classifier_on_transformed_data(self, data_num_scaled, data_discrete_oh):
         data = self.inv_data_transform(data_num_scaled, data_discrete_oh)
-        return self.classifier(data)
+        return tf.cast(self.classifier(data), tf.float32)
 
     def eval_classifier_on_transformed_data(self, data_num_scaled, data_discrete_oh):
-        return tf.py_function(self._eval_classifier_on_transformed_data,
-                              inp=[data_num_scaled, data_discrete_oh],
-                              Tout=[tf.float32])
+        return tf.reshape(
+            tf.py_function(self._eval_classifier_on_transformed_data,
+                           inp=[data_num_scaled, data_discrete_oh], Tout=tf.float32),
+            shape=[data_num_scaled.shape[0]])
 
 
 
     def train_step_func(self, n_batch, ret_loss=False):
-
+        # prev_time = tf.timestamp()
         for i in range(self.n_critic):
             queries = self.generate_queries(n_batch)
+            #curr_time = tf.timestamp(); tf.print("Fetching queries:", curr_time - prev_time); prev_time=curr_time
             data_batch_real = self.get_numpy_data_batch_real_from_queries(queries)
+            #curr_time = tf.timestamp(); tf.print("Fetching data real:", curr_time - prev_time); prev_time=curr_time
             self.train_step_critic(data_batch_real, n_batch, queries=queries)
+            #curr_time = tf.timestamp(); tf.print("Performing train step critic:", curr_time - prev_time); prev_time=curr_time
 
         queries = self.generate_queries(n_batch)
+        #curr_time = tf.timestamp(); tf.print("Fetching queries:", curr_time - prev_time); prev_time=curr_time
         self.train_step_generator(n_batch, queries=queries)
+        #curr_time = tf.timestamp(); tf.print("Performing train step generator:", curr_time - prev_time); prev_time=curr_time
 
         if ret_loss:
             return 0, 0
@@ -143,21 +168,23 @@ class TabGANcf(TabGAN):
         input_numeric = Input(shape=(self.n_columns_num * self.pac), name="Numeric_input")
         input_discrete = Input(shape=(self.n_columns_discrete_oh * self.pac), name="Discrete_input")
         input_instance = Input(shape=((self.n_columns_num + self.n_columns_discrete_oh) * self.pac), name="Query_instance")
-        queries = [input_instance]
+        input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
+        queries = [input_instance, input_classifier_label]
         queries_combined = []
         if self.query_critic_instance:
             queries_combined += [input_instance]
 
         if self.query_critic_classifier_label:
-            input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
-            queries += [input_classifier_label]
             queries_combined += [input_classifier_label]
-        if len(queries_combined) > 1:
-            queries_combined = concatenate(queries_combined, name="Combining_queries")
-        else:
-            queries_combined = queries_combined[0]
 
-        combined1 = concatenate([input_numeric, input_discrete, queries_combined], name="Combining_input")
+        if len(queries_combined) == 0:
+            combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
+        else:
+            if len(queries_combined) > 1:
+                queries_combined = concatenate(queries_combined, name="Combining_queries")
+            else:
+                queries_combined = queries_combined[0]
+            combined1 = concatenate([input_numeric, input_discrete, queries_combined], name="Combining_input")
         inputs = [[input_numeric, input_discrete], queries]
         hidden = combined1
         if 0 in self.add_dropout_critic:
@@ -181,12 +208,11 @@ class TabGANcf(TabGAN):
 
         latent = Input(shape=self.dim_latent, name="Latent")
         input_instance = Input(shape=((self.n_columns_num + self.n_columns_discrete_oh) * self.pac), name="Query_instance")
-        queries = [input_instance]
+        input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
+        queries = [input_instance, input_classifier_label]
         combined_queries = [input_instance]
 
-        if self.query_generator_classifier_label or self.query_critic_classifier_label:
-            input_classifier_label = Input(shape=(1 * self.pac), name="Query_classifier_label")
-            queries += [input_classifier_label]
+        if self.query_generator_classifier_label:
             combined_queries += [input_classifier_label]
         else:
             combined_queries = queries

@@ -38,7 +38,7 @@ class TabGAN:
                  train_step_critic_same_queries_for_critic_and_gen=True,
                  train_step_critic_wgan_penalty_query_diversity=False,
                  train_step_critic_query_wgan_penalty=True,
-                 query_input_to_critic=True,
+                 critic_use_query_input=True,
                  activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
                  elu_alpha=1.0,
                  add_dropout_critic=[], add_dropout_generator=[],
@@ -203,7 +203,7 @@ class TabGAN:
         self.train_step_critic_same_queries_for_critic_and_gen = train_step_critic_same_queries_for_critic_and_gen
         self.train_step_critic_wgan_penalty_query_diversity = train_step_critic_wgan_penalty_query_diversity
         self.train_step_critic_query_wgan_penalty = train_step_critic_query_wgan_penalty
-        self.query_input_to_critic = query_input_to_critic
+        self.critic_use_query_input = critic_use_query_input
         self.activation_function = activation_function
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
@@ -643,7 +643,7 @@ class TabGAN:
         else:
             inputs = [[input_numeric, input_discrete]]
 
-        if self.use_query and self.query_input_to_critic:
+        if self.use_query and self.critic_use_query_input:
             combined1 = concatenate([input_numeric, input_discrete, query], name="Combining_input")
         else:
             combined1 = concatenate([input_numeric, input_discrete], name="Combining_input")
@@ -835,7 +835,7 @@ class TabGAN:
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
             combined_data_discrete = epsilon * data_batch_gen[1] + (1 - epsilon) * data_batch_real[1]
             if self.use_query:
-                if self.train_step_critic_query_wgan_penalty or not self.query_input_to_critic:
+                if self.train_step_critic_query_wgan_penalty and self.critic_use_query_input:
                     if self.train_step_critic_same_queries_for_critic_and_gen:
                         if self.train_step_critic_wgan_penalty_query_diversity:
                             combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
@@ -857,7 +857,7 @@ class TabGAN:
                     combined_queries = queries_gen
 
                 combined_data = [[combined_data_num, combined_data_discrete], combined_queries]
-                if self.train_step_critic_query_wgan_penalty and self.query_input_to_critic:
+                if self.train_step_critic_query_wgan_penalty and self.critic_use_query_input:
                     combined_data_used_by_critic = [combined_data_num, combined_data_discrete,
                                                     combined_queries_used_by_critic]
                 else:
@@ -869,8 +869,11 @@ class TabGAN:
                 discr_tape_comb.watch(combined_data_used_by_critic)
                 loss_discr_combined = self.critic(combined_data, training=True)
             combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data_used_by_critic)
-            combined_gradients = tf.concat([tf.concat(grad_matrix, axis=1) for grad_matrix in combined_gradients],
-                                           axis=1)
+            if self.critic_use_query_input:
+                combined_gradients = tf.concat([tf.concat(grad_matrix, axis=1) for grad_matrix in combined_gradients],
+                                               axis=1)
+            else:
+                combined_gradients = tf.concat(combined_gradients, axis=1)
 
             gradient_penalty = tf.norm(combined_gradients, axis=1) - 1
             if self.gan_method == "WGAN-SGP":
@@ -945,7 +948,8 @@ class TabGAN:
             loss_gen = self.calc_loss_generator(fake_output=fake_output,
                                                 gen_data_num=gen_data_num,
                                                 gen_data_discrete=gen_data_discrete,
-                                                queries=queries)
+                                                queries=queries,
+                                                gen_tape=gen_tape)
             if self.ctgan and self.ctgan_binomial_loss:
                 # tf.print(tf.reduce_sum(queries * gen_data_discrete, axis=1),
                 #          "min_val:", tf.math.reduce_min(tf.reduce_sum(queries * gen_data_discrete, axis=1)),
@@ -1175,15 +1179,12 @@ class TabGAN:
             ax_loss.legend()
             plt.close(fig_loss)
 
-        if not (plot_loss or plot_time or plot_time):
-            return None
-
         return_figures = ()
 
         if plot_loss:
             return_figures += (fig_loss,)
 
-        if plot2D_image_real_time:
+        if plot2D_image_real_time or filename_plot2D or plot2D_image:
             plt.close(fig_plot2D)
 
         if plot2D_image:
