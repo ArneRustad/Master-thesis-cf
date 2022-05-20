@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import warnings
+
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, QuantileTransformer
 from sklearn.compose import ColumnTransformer
 
@@ -15,7 +17,9 @@ class TabGANcf(TabGAN):
     def __init__(self, data_train, classifier, only_gen_class=None,
                  query_critic_instance=True,
                  query_critic_classifier_label=False, query_generator_classifier_label=False,
-                 classifier_adjusted_wgan_loss_term=False,
+                 classifier_adjusted_wgan_loss_term=False, only_want_class=None,
+                 critic_loss_mix_real_correct_samples_with_generated=False,
+                 critic_loss_mix_real_wrong_samples_with_generated=False,
                  **kwargs):
 
         super().__init__(data=data_train,
@@ -25,6 +29,18 @@ class TabGANcf(TabGAN):
         if only_gen_class is not None and only_gen_class not in [0, 1]:
             raise ValueError("The parameter only_gen_class only allows values None, 0 or 1."
                              f" You entered {only_gen_class}")
+        if only_want_class is not None and only_want_class not in [0, 1]:
+            raise ValueError("The parameter only_want_class only allows values None, 0 or 1."
+                             f" You entered {only_want_class}")
+
+        if only_want_class is not None and only_gen_class is not None:
+            raise ValueError("The parameter only_want_class!=None should not be used in combination with parameter" 
+                             " only_gen_class!=None")
+        if only_want_class is not None and not classifier_adjusted_wgan_loss_term:
+            import logging
+            warnings.warn("The parameter only_want_class will have little effect in learning when not used in" 
+            " combination with classifier_adjusted_wgan_loss_term=True")
+
         self.n_columns_query = self.n_columns_num + self.n_columns_discrete_oh
         self.classifier = classifier
         self.query_critic_classifier_label = query_critic_classifier_label
@@ -32,6 +48,9 @@ class TabGANcf(TabGAN):
         self.query_critic_instance = query_critic_instance
         self.only_gen_class = only_gen_class
         self.classifier_adjusted_wgan_loss_term = classifier_adjusted_wgan_loss_term
+        self.only_want_class = 1
+        self.critic_loss_mix_real_correct_samples_with_generated = critic_loss_mix_real_correct_samples_with_generated
+        self.critic_loss_mix_real_wrong_samples_with_generated = critic_loss_mix_real_wrong_samples_with_generated
 
         self.classifier_label = tf.round(tf.reshape(self.classifier(self.data), shape=(self.nrow, 1)))
         self.data_ix_classifier_0 = np.where(self.classifier_label <= 0.5)[0].flatten()
@@ -49,15 +68,20 @@ class TabGANcf(TabGAN):
 
 
 
-    def generate_queries(self, n):
-        if self.only_gen_class is None:
+    def generate_queries(self, n, plot2D_test_samples=False):
+        if plot2D_test_samples and self.only_want_class is not None:
+            only_gen_class = self.only_want_class
+        else:
+            only_gen_class = self.only_gen_class
+
+        if only_gen_class is None:
             ix = tf.random.uniform(shape=[n], minval=0, maxval=self.data.shape[0], dtype=tf.int64)
-        elif self.only_gen_class == 0:
+        elif only_gen_class == 0:
             ix_indices = tf.random.uniform(shape=[n], minval=0, maxval=self.data_ix_classifier_1.shape[0],
                                         dtype=tf.int64)
             ix = tf.squeeze(tf.py_function(np.vectorize(lambda ixs: self.data_ix_classifier_1[ixs]),
                                            inp=[ix_indices], Tout=tf.int64))
-        elif self.only_gen_class == 1:
+        elif only_gen_class == 1:
             ix_indices = tf.random.uniform(shape=[n], minval=0, maxval=self.data_ix_classifier_0.shape[0],
                                            dtype=tf.int64)
             ix = tf.squeeze(tf.py_function(np.vectorize(lambda ixs: self.data_ix_classifier_0[ixs]),
@@ -88,10 +112,10 @@ class TabGANcf(TabGAN):
         ix_batch_0 = np.random.choice(self.data_ix_classifier_0, n_batch_0)
         ix_batch_1 = np.random.choice(self.data_ix_classifier_1, n_batch_1)
 
-        ix = np.empty(shape=queries.shape[0], dtype=np.int64)
+        ix = np.empty(shape=queries.shape[0], dtype=int)
         ix[wanted_classifier_label <= 0.5] = ix_batch_0
         ix[wanted_classifier_label > 0.5] = ix_batch_1
-        ix = ix.astype(np.int64)
+        ix = ix.astype(int)
         
         return_object = [self.data_num_scaled[ix, ], self.data_discrete_oh[ix, ]]
         return return_object
@@ -100,26 +124,43 @@ class TabGANcf(TabGAN):
         return tf.py_function(self._python_get_numpy_data_batch_real_from_queries,
                               inp=[queries[0], tf.squeeze(queries[1])], Tout=[tf.float32, tf.float32])
 
+    def calc_loss_critic(self, real_output, fake_output, data_batch_real, queries_real, critic_tape):
+        if self.classifier_adjusted_wgan_loss_term:
+            # Classifier adjusted loss term for WGAN
+            with critic_tape.stop_recording():
+                classifier_score_real_data = tf.squeeze(queries_real[1])
+                if self.only_want_class is None:
+                    classifier_score_real_data = tf.where(wanted_classifier_label <= 0.5,
+                                                       1 - classifier_score_real_data, classifier_score_real_data)
+                elif self.only_want_class == 0:
+                    classifier_score_real_data = 1 - classifier_score_real_data
+                elif self.only_want_class == 1:
+                    pass
+                else:
+                    raise ValueError(f"Not valid input for parameter only_want_class: {self.only_want_class}")
+                #tf.print(classifier_val_gen_data)
+                sum_classifier_score_real_data = tf.reduce_sum(classifier_score_real_data)
+            loss = - tf.reduce_sum(classifier_score_real_data * tf.squeeze(real_output) / sum_classifier_score_real_data)
+        else:
+            # Standard WGAN loss term
+            loss = - tf.reduce_mean(real_output)
+
+        if self.critic_loss_mix_real_wrong_samples_with_generated:
+            loss += 0.25 * tf.reduce_mean(self.critic([self.split_transformed_data(queries_real[0]),
+                                                [tf.concat(data_batch_real, axis=1),
+                                                 queries_real[1]]
+                                                ]))
+
+
+        loss += tf.reduce_mean(fake_output)
+        return loss
+
     def calc_loss_generator(self, fake_output, gen_data_num, gen_data_discrete, queries, gen_tape):
         query_instances_num = queries[0][:, :self.n_columns_num]
         query_instances_discrete = queries[0][:, self.n_columns_num:]
-        wanted_classifier_label = tf.squeeze(queries[1])
-        if self.classifier_adjusted_wgan_loss_term:
-            # Classifier adjusted loss term for WGAN
-            classifier_val_gen_data = self.eval_classifier_on_transformed_data(gen_data_num, gen_data_discrete)
-            # def te(data_num_scaled, data_discrete_oh):
-            #     data = self.inv_data_transform(data_num_scaled, data_discrete_oh)
-            #     s = self.classifier(data)
-            #     return tf.cast(s, tf.float32)
-            with gen_tape.stop_recording():
-                classifier_val_gen_data = tf.where(wanted_classifier_label <= 0.5,
-                                                   1 - classifier_val_gen_data, classifier_val_gen_data)
-                #tf.print(classifier_val_gen_data)
-                sum_classifier_val_gen_data = tf.reduce_sum(classifier_val_gen_data)
-            loss = - tf.reduce_sum(classifier_val_gen_data * tf.squeeze(fake_output) / sum_classifier_val_gen_data)
-        else:
-            # Standard WGAN loss term
-            loss = - tf.reduce_mean(fake_output)
+
+        # Standard WGAN loss term
+        loss = - tf.reduce_mean(fake_output)
         loss_vec = [loss]
         # Distance 1 norm loss term
         loss += tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_num - gen_data_num), axis=1))
@@ -303,8 +344,8 @@ class TabGANcf(TabGAN):
                                for color in color_dict.values()]
                     ax.legend(markers, color_dict.keys(), numpoints=1)
 
-                class_gen_data = np.where(self.classifier(gen_data) > 0.5, 1, 0).astype(np.int)
-                class_queries = np.where(self.classifier(queries) > 0.5, 1, 0).astype(np.int)
+                class_gen_data = np.where(self.classifier(gen_data) > 0.5, 1, 0).astype(int)
+                class_queries = np.where(self.classifier(queries) > 0.5, 1, 0).astype(int)
         else:
             gen_data = pd.DataFrame(gen_data_num, columns=self.columns_num)
             queries = pd.DataFrame(self.split_transformed_data(queries[0])[0], columns=self.columns_num)

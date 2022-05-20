@@ -240,7 +240,7 @@ class TabGAN:
         self.pos_queries_used_by_critic = [0]
 
         self.np_ix_start = tf.convert_to_tensor(0)
-        self.np_ix_list = np.array([], dtype=np.int)
+        self.np_ix_list = np.array([], dtype=int)
         self.np_ix_iter = None
 
         # Separate numeric data, fit numeric scaler and scale numeric data. Store numeric column names.
@@ -542,7 +542,7 @@ class TabGAN:
         return (pd.concat([data_float, data_int, data_discrete], axis=1)[self.columns])
 
 
-    def generate_queries(self, n, ret_query_id=False, original_probs=True):
+    def generate_queries(self, n, ret_query_id=False, original_probs=True, **kwargs):
         """
         Generate n queries. Implemented for ctgan parameter. Else a dummy function
         """
@@ -572,7 +572,7 @@ class TabGAN:
 
     def _get_numpy_data_batch_real_from_queries(self, query_ids):
         u = np.random.uniform(low=0, high=1, size=query_ids.shape[0])
-        indices_idx = np.round(u * (self.map_query_id_to_n_indices[query_ids] - 1)).astype(np.int)
+        indices_idx = np.round(u * (self.map_query_id_to_n_indices[query_ids] - 1)).astype(int)
         idx = self.map_query_id_and_indices_idx_to_obs_idx(query_ids, indices_idx)
         return [self.data_num_scaled_cast[idx], self.data_discrete_oh_cast[idx]]
 
@@ -819,7 +819,7 @@ class TabGAN:
             ]
 
 
-        with tf.GradientTape() as discr_tape:
+        with tf.GradientTape() as critic_tape:
             output_discr_real = self.critic(
                 [data_batch_real, queries_critic] if self.use_query else [data_batch_real],
                 training=True
@@ -828,8 +828,11 @@ class TabGAN:
                 [data_batch_gen, queries_gen] if self.use_query else [data_batch_gen],
                 training=True
             )
-            loss_discr = self.calc_loss_discr(real_output=output_discr_real,
-                                              fake_output=output_discr_fake)
+            loss_discr = self.calc_loss_critic(real_output=output_discr_real,
+                                              fake_output=output_discr_fake,
+                                               data_batch_real=data_batch_real,
+                                               queries_real=queries_critic,
+                                               critic_tape=critic_tape)
 
             epsilon = tf.random.uniform([n_batch_pac, 1])
             combined_data_num = epsilon * data_batch_gen[0] + (1 - epsilon) * data_batch_real[0]
@@ -865,10 +868,10 @@ class TabGAN:
             else:
                 combined_data = combined_data_used_by_critic = [[combined_data_num, combined_data_discrete]]
 
-            with tf.GradientTape() as discr_tape_comb:
-                discr_tape_comb.watch(combined_data_used_by_critic)
+            with tf.GradientTape() as critic_tape_comb:
+                critic_tape_comb.watch(combined_data_used_by_critic)
                 loss_discr_combined = self.critic(combined_data, training=True)
-            combined_gradients = discr_tape_comb.gradient(loss_discr_combined, combined_data_used_by_critic)
+            combined_gradients = critic_tape_comb.gradient(loss_discr_combined, combined_data_used_by_critic)
             if self.critic_use_query_input:
                 combined_gradients = tf.concat([tf.concat(grad_matrix, axis=1) for grad_matrix in combined_gradients],
                                                axis=1)
@@ -880,13 +883,13 @@ class TabGAN:
                 gradient_penalty = tf.maximum(gradient_penalty, 0)
             loss_discr_gradients = self.wgan_lambda * tf.reduce_mean(gradient_penalty ** 2)
             loss_discr_combined = loss_discr + loss_discr_gradients
-        gradients_of_critic = discr_tape.gradient(loss_discr_combined,
+        gradients_of_critic = critic_tape.gradient(loss_discr_combined,
                                                   self.critic.trainable_variables)
         self.critic_optimizer.apply_gradients(
             zip(gradients_of_critic, self.critic.trainable_variables))
         return None
 
-    def calc_loss_discr(self, real_output, fake_output):
+    def calc_loss_critic(self, real_output, fake_output, **kwargs):
         return - tf.reduce_mean(real_output) + tf.reduce_mean(fake_output)
 
     def calc_loss_generator(self, fake_output, **kwargs):
@@ -924,7 +927,7 @@ class TabGAN:
         output_discr_fake = self.critic(
             [[gen_data_num, gen_data_discrete], queries] if self.use_query else [[gen_data_num, gen_data_discrete]],
             training=True)
-        em_distance = self.calc_loss_discr(real_output=output_discr_real, fake_output=output_discr_fake)
+        em_distance = self.calc_loss_critic(real_output=output_discr_real, fake_output=output_discr_fake)
         return em_distance
 
     def train_step_generator_func(self, n_batch, queries=None):
@@ -1053,7 +1056,7 @@ class TabGAN:
                                                    squeeze=False)
             noise_test = self.generate_latent(plot2D_n_test)
             if self.use_query:
-                queries_test = self.generate_queries(plot2D_n_test)
+                queries_test = self.generate_queries(plot2D_n_test, plot2D_test_samples=True)
             else:
                 queries_test = None
             plot2D_any = True
