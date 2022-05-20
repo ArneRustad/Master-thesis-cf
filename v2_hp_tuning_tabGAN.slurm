@@ -23,7 +23,9 @@ echo "Total of $SLURM_NTASKS cores"
 echo "GPUs allocated for the job: $SLURM_JOB_GPUS"
 
 module purge
-module load TensorFlow/2.4.1-fosscuda-2020b
-module load tensorflow-probability/0.12.1-fosscuda-2020b
+#module load TensorFlow/2.4.1-fosscuda-2020b
+#module load tensorflow-probability/0.12.1-fosscuda-2020b
+module load TensorFlow/2.6.0-foss-2021a-CUDA-11.3.1
+module load tensorflow-probability/0.14.1-foss-2021a-CUDA-11.3.1
 
 python run_v2_hp_tuning_tabGAN.py $SLURM_ARRAY_TASK_ID

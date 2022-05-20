@@ -230,7 +230,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
         "hyperparams_subname": ["dim_hidden_connection", "connection"]
     }
 
-    activation_function_vec = [("GELU", False)]  #, ("GELU", True)]
+    activation_function_vec = [("GELU", False), ("GELU", True)]
     activation_function_vec += [(function, False) for function in ["ReLU", "LeakyReLU", "SquaredReLU", "ELU", "Swish",
                                                                    "SELU", "LeakySquaredReLU"]]
 
@@ -288,7 +288,7 @@ def fetch_hp_info(method="ctabGAN-qtr"):
                              "'Same_queries_generator_and_critic_but_diverse_penalty'")
         temp_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = train_step_critic_same_queries_for_critic_and_gen
         temp_args_dict["train_step_critic_wgan_penalty_query_diversity"] = train_step_critic_wgan_penalty_query_diversity
-        temp_args_dict["query_input_to_critic"] = query_input_to_critic
+        temp_args_dict["critic_use_query_input"] = query_input_to_critic
         temp_args_dict["train_step_critic_query_wgan_penalty"] = train_step_critic_query_wgan_penalty
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr

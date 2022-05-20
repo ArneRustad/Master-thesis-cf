@@ -13,8 +13,9 @@ hp_name_vec = ["qtr_spread", "qtr_spread_300_epochs", "oh_encoding_choices", "ad
                "add_connection_advanced", "activation_function"]
 hp_name_restart_vec = []
 
-slurm_array_task_id = int(os.getenv('SLURM_ARRAY_TASK_ID'))
+slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')
 if slurm_array_task_id is not None:
+    slurm_array_task_id = int(slurm_array_task_id)
     hp_name_vec = hp_name_vec[(slurm_array_task_id-1):slurm_array_task_id]
     print(f"Starting slurm array task {slurm_array_task_id}: hyperparameter tuning for {hp_name_vec[0]}")
 
