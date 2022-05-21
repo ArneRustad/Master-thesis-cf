@@ -559,12 +559,12 @@ class TabGAN:
             drawn_queries = tf.py_function(lambda ids: self.queries_all[ids, :],
                                            inp=[query_ids], Tout=tf.float32)
             if ret_query_id:
-                return drawn_queries, query_ids
+                return [drawn_queries], query_ids
             else:
-                return drawn_queries
+                return [drawn_queries]
         # Return a dummy query consisting of only zeros
         else:
-            return tf.zeros([n, self.n_columns_discrete_oh])
+            return [tf.zeros([n, self.n_columns_discrete_oh])]
 
     def get_numpy_data_batch_real_from_queries(self, query_ids):
         return tf.py_function(self._get_numpy_data_batch_real_from_queries,
@@ -841,8 +841,10 @@ class TabGAN:
                 if self.train_step_critic_query_wgan_penalty and self.critic_use_query_input:
                     if self.train_step_critic_same_queries_for_critic_and_gen:
                         if self.train_step_critic_wgan_penalty_query_diversity:
-                            combined_queries = epsilon * tf.concat(queries_gen, axis=1) + \
-                                               (1 - epsilon) * tf.concat(queries_wgan_penalty_diversity, axis=1)
+                            combined_queries = [
+                                epsilon * query_gen + (1 - epsilon) * query_critic
+                                for query_gen, query_critic in zip(queries_gen, queries_wgan_penalty_diversity)
+                            ]
                         else:
                             combined_queries = queries_gen
                     else:
@@ -850,6 +852,11 @@ class TabGAN:
                             epsilon * query_gen + (1 - epsilon) * query_critic
                             for query_gen, query_critic in zip(queries_gen, queries_critic)
                         ]
+                        # tf.print(queries_gen)
+                        # tf.print(queries_critic)
+                        # combined_queries = tf.add(tf.multiply(tf.ragged.stack(queries_gen), epsilon),
+                        #                           tf.multiply(tf.ragged.stack(queries_critic), 1 - epsilon))
+                        # combined_queries = [combined_queries[i].to_tensor() for i in range(combined_queries.shape[0])]
 
                     if all([pos == i for i, pos in enumerate(self.pos_queries_used_by_critic)]):
                         combined_queries_used_by_critic = combined_queries

@@ -257,45 +257,38 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["function", "approximate"]
     }
 
-    wgan_penalty_query_vec = ["Same_queries_generator_and_critic", "Different_queries_generator_and_critic",
-                              "Same_queries_generator_and_critic_but_diverse_penalty",
-                              "Same_queries_generator_and_critic_but_no_query_input_to_critic",
-                              "Different_queries_generator_and_critic_but_no_query_input_to_critic",
-                              "Same_queries_generator_and_critic_but_no_queries_wgan_penalty",
-                              "Different_queries_generator_and_critic_but_no_queries_wgan_penalty"]
+    # wgan_penalty_query_vec = ["Same_queries_generator_and_critic", "Different_queries_generator_and_critic",
+    #                           "Same_queries_generator_and_critic_but_diverse_penalty",
+    #                           "Same_queries_generator_and_critic_but_no_query_input_to_critic",
+    #                           "Same_queries_generator_and_critic_but_no_queries_wgan_penalty",
+    #                           "Different_queries_generator_and_critic_but_no_queries_wgan_penalty"]
+    wgan_penalty_query_vec = [(same_queries_generator_and_critic, other_argument)
+                              for same_queries_generator_and_critic in [False, True]
+                              for other_argument in ["None", "No wgan query penalty"]]
+    wgan_penalty_query_vec += [(True, "Diverse query WGAN penalty"), (True, "No query input to critic")]
 
-    def create_tabGAN_for_wgan_penalty_query(argument):
+    def create_tabGAN_for_wgan_penalty_query(same_queries_generator_and_critic, other_argument):
         temp_args_dict = copy.deepcopy(method_args_dict)
         query_input_to_critic = True
         train_step_critic_wgan_penalty_query_diversity = False
         train_step_critic_query_wgan_penalty = True
-        if argument == "Same_queries_generator_and_critic":
-            train_step_critic_same_queries_for_critic_and_gen = True
-        elif argument == "Different_queries_generator_and_critic":
-            train_step_critic_same_queries_for_critic_and_gen = False
-        elif argument == "Same_queries_generator_and_critic_but_diverse_penalty":
-            train_step_critic_same_queries_for_critic_and_gen = True
+        if other_argument == "None":
+            pass
+        elif other_argument == "Diverse query WGAN penalty":
             train_step_critic_wgan_penalty_query_diversity = True
-        elif argument == "Same_queries_generator_and_critic_but_no_query_input_to_critic":
-            train_step_critic_same_queries_for_critic_and_gen = True
+        elif other_argument == "No query input to critic":
             query_input_to_critic = False
-        elif argument == "Different_queries_generator_and_critic_but_no_query_input_to_critic":
-            train_step_critic_same_queries_for_critic_and_gen = False
-            query_input_to_critic = False
-        elif argument == "Same_queries_generator_and_critic_but_no_queries_wgan_penalty":
-            train_step_critic_same_queries_for_critic_and_gen = True
-            train_step_critic_query_wgan_penalty = False
-        elif argument == "Different_queries_generator_and_critic_but_no_queries_wgan_penalty":
-            train_step_critic_same_queries_for_critic_and_gen = False
+        elif other_argument == "No wgan query penalty":
             train_step_critic_query_wgan_penalty = False
         else:
-            raise ValueError("Argument must be one of the following: 'Same_queries_generator_and_critic', "
-                             "'Different_queries_generator_and_critic', or" 
-                             "'Same_queries_generator_and_critic_but_diverse_penalty'")
-        temp_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = train_step_critic_same_queries_for_critic_and_gen
+            raise ValueError("other_argument parameter must be one of the following: 'None', 'Diverse query WGAN penalty', "
+                             "'No query input to critic', or" 
+                             "'No wgan query penalty'")
+        temp_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = same_queries_generator_and_critic
         temp_args_dict["train_step_critic_wgan_penalty_query_diversity"] = train_step_critic_wgan_penalty_query_diversity
         temp_args_dict["critic_use_query_input"] = query_input_to_critic
         temp_args_dict["train_step_critic_query_wgan_penalty"] = train_step_critic_query_wgan_penalty
+        temp_args_dict["jit_compile"] = False
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr
 
@@ -305,7 +298,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_wgan_penalty_query,
         "batch_size": BATCH_SIZE,
-        "hyperparams_subname": None
+        "hyperparams_subname": ["Same_queries_generator_and_critic", "other_argument"]
     }
     return hp_info
 
