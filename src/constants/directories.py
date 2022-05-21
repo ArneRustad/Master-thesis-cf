@@ -22,10 +22,12 @@ data = lambda: os.path.join(project(), "data")
 images = lambda: os.path.join(project(), "images")
 images_hp = lambda: os.path.join(images(), "Hyperparameter tuning")
 images_hp_v2 = lambda: os.path.join(images(), "hyperparameter_tuning_v2")
+images_hp_v3 = lambda: os.path.join(images(), "hyperparameter_tuning_v3")
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
 hyperparams_tuning = lambda: os.path.join(storage(), "hyperparams_tuning")
 hp_tuning_v2 = lambda: os.path.join(storage(), "hyperparams_tuning_v2")
+hp_tuning_v3 = lambda: os.path.join(storage(), "hyperparams_tuning_v3")
 timers = lambda: os.path.join(storage(), "timers")
 models = lambda: os.path.join(storage(), "models")
 py_objects = lambda: os.path.join(storage(), "python_objects")
@@ -34,5 +36,5 @@ data_temp = lambda: os.path.join(storage(), "data_temp")
 n_epochs_comparison = lambda: os.path.join(storage(), "n_epochs_comparison")
 
 for dir in [data, images, images_hp, images_hp_v2, data_gen, hyperparams_tuning, hp_tuning_v2, timers, models,
-            py_objects, cf, data_temp, n_epochs_comparison]:
+            py_objects, cf, data_temp, n_epochs_comparison, hp_tuning_v3, images_hp_v3]:
     os.makedirs(dir(), exist_ok=True)

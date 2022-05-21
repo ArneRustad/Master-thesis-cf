@@ -18,11 +18,11 @@ opt_lr = 0.0002
 adam_beta1 = 0.5
 
 n_synthetic_datasets = 25
-jit_compile = False
+jit_compile = True
 
 def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_transformation_randomized=False,
                         ctgan=False, ctgan_log_freq=True, pac=1, qtr_spread=0.4, hp=False,
-                        noise_discrete_unif_max=0, hp2=False):
+                        noise_discrete_unif_max=0, hp2=False, test=False):
     if sum([hp, hp2, qtr_spread != 0.4]) > 1:
         raise ValueError("qtr_spread is changed when using hyperparameters found after tuning."
                          " Thus qtr_spread can't be changed when entering hp=True or hp2=True."
@@ -57,23 +57,37 @@ def gen_datasets_tabgan(data_train, quantile_transformation=False, quantile_tran
             extra_tabGAN_params["gelu_approximate"] = False
             extra_tabGAN_params["gumbel_temperature"] = 0.5
 
+    if test:
+        method_name += "-test"
     print_header_method(method_name)
 
-    tg = TabGAN(data_train, n_critic=n_critic, opt_lr=opt_lr, adam_beta1=adam_beta1,
-                quantile_transformation_int=quantile_transformation,
-                quantile_rand_transformation=quantile_transformation_randomized,
-                noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=jit_compile,
-                ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
-                pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
-    # if hp2:
-        #tg.train(300, progress_bar=True, restart_training=False)
-        # helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs=5, subfolder=method_name,
-        #                                    batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
-        # print(tg.sample_scaled())
-        # print(tg.sample())
-    helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
+    if test:
+        tg = TabGAN(data_train, n_critic=n_critic, opt_lr=opt_lr, adam_beta1=adam_beta1,
+                    quantile_transformation_int=quantile_transformation,
+                    quantile_rand_transformation=quantile_transformation_randomized,
+                    noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=False,
+                    ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
+                    pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
+    else:
+        tg = TabGAN(data_train, n_critic=n_critic, opt_lr=opt_lr, adam_beta1=adam_beta1,
+                    quantile_transformation_int=quantile_transformation,
+                    quantile_rand_transformation=quantile_transformation_randomized,
+                    noise_discrete_unif_max=noise_discrete_unif_max, jit_compile=jit_compile,
+                    ctgan=ctgan, ctgan_log_frequency=ctgan_log_freq, tf_data_use=(not ctgan),
+                    pac=pac, qtr_spread=qtr_spread, **extra_tabGAN_params)
+    if test:
+        tg.train(300, progress_bar=True, restart_training=False)
+        helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs=5, subfolder=method_name,
                                            batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
+        print(tg.sample_scaled())
+        print(tg.sample())
+    else:
+        helpers.generate_multiple_datasets(tg, const.dir.data_gen(), n_synthetic_datasets, n_epochs, subfolder=method_name,
+                                               batch_size=batch_size, overwrite_dataset=False, progress_bar_dataset=False)
 
+# Test
+gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,
+                    ctgan=True, ctgan_log_freq=True, hp2=True, test=True)
 
 # hp-tuned
 gen_datasets_tabgan(data_train, quantile_transformation=True, quantile_transformation_randomized=True,

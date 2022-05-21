@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 import copy
 
-JIT_COMPILE_TRAIN_STEP = False
-N_EPOCHS = 100
+JIT_COMPILE_TRAIN_STEP = True
 BATCH_SIZE = 500
 
 tabgan_args_dict = {
@@ -82,13 +81,20 @@ ctabgan_args_dict = {
 dataset_train_path = os.path.join(const.dir.data(), "df_adult_edited_train.csv")
 data_train = pd.read_csv(dataset_train_path)
 
-def fetch_hp_info(method="ctabGAN-qtr"):
+def fetch_hp_info(method="ctabGAN-qtr", version=2):
     if method == "tabGAN-qtr":
         method_args_dict = tabgan_args_dict
     elif method == "ctabGAN-qtr":
         method_args_dict = ctabgan_args_dict
     else:
         raise ValueError(f"Entered method name {method} has not yet any hyperparameter tuning info")
+
+    if version >= 3:
+        N_EPOCHS = 300
+        method_args_dict["activation_function"] = "GELU"
+        method_args_dict["gelu_approximate"] = False
+    else:
+        N_EPOCHS = 100
 
     hp_info = {}
 
