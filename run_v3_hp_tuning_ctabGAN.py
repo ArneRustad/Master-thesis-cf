@@ -7,7 +7,7 @@ PROGRESS_BAR_SUBSUBPROCESS = False
 METHOD_NAME = "ctabGAN-qtr"
 
 
-hp_info = fetch_hp_info(method=METHOD_NAME)
+hp_info = fetch_hp_info(method=METHOD_NAME, version=3)
 hp_name_vec = ["qtr_spread", "noise_ctgan", "gumbel_temperature", "add_connection",
                "oh_encoding_choices", "activation_function", "wgan_penalty_query",
                "add_connection_advanced"]
@@ -27,7 +27,7 @@ for hp_name in hp_name_vec:
         create_tabGAN_func=curr_hp_info["tabGAN_func"],
         hyperparams_vec=curr_hp_info["vec"],
         n_epochs=curr_hp_info["n_epochs"],
-        dataset_dir=const.dir.hp_tuning_v2(),
+        dataset_dir=const.dir.hp_tuning_v3(),
         batch_size=curr_hp_info["batch_size"],
         subfolder=METHOD_NAME,
         n_synthetic_datasets=curr_hp_info["n_synthetic_datasets"],

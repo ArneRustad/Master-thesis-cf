@@ -75,7 +75,12 @@ ctabgan_args_dict = {
     "ctgan_binomial_loss": True,
     "ctgan_log_frequency": True,
     # Packing parameters
-    "pac": 1
+    "pac": 1,
+    # WGAN Query penalty and critic's query usage
+    "train_step_critic_same_queries_for_critic_and_gen": True,
+    "train_step_critic_wgan_penalty_query_diversity": False,
+    "train_step_critic_query_wgan_penalty": True,
+    "critic_use_query_input": True
 }
 
 dataset_train_path = os.path.join(const.dir.data(), "df_adult_edited_train.csv")
@@ -93,6 +98,8 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         N_EPOCHS = 300
         method_args_dict["activation_function"] = "GELU"
         method_args_dict["gelu_approximate"] = False
+        if method == "ctabGAN-qtr":
+            method_args_dict["train_step_critic_same_queries_for_critic_and_gen"] = False,
     else:
         N_EPOCHS = 100
 
@@ -300,5 +307,23 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": ["Same_queries_generator_and_critic", "other_argument"]
     }
+
+    qt_distribution_vec = ["normal", "uniform"]
+
+    def create_tabGAN_for_qt_distribution(qt_distribution):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["qt_distribution"] = qt_distribution
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["qt_distribution"] = {
+        "vec": qt_distribution_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_qt_distribution,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
     return hp_info
 
