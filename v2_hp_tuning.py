@@ -325,5 +325,25 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
+    qt_transformation_vec = [(qt_distribution, latent_distribution)
+                          for qt_distribution in ["normal", "uniform"]
+                          for latent_distribution in ["normal", "uniform"]]
+
+    def create_tabGAN_for_qt_transformation(qt_distribution, latent_distribution):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["qt_distribution"] = qt_distribution
+        temp_args_dict["latent_distribution"] = latent_distribution
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["qt_transformation"] = {
+        "vec": qt_transformation_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_qt_transformation,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["qt_distribution", "latent_distribution"]
+    }
+
     return hp_info
 

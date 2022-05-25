@@ -30,7 +30,7 @@ class TabGAN:
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, gumbel_temperature=0.5, n_critic=5,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
-                 qt_distribution="normal",
+                 qt_distribution="normal", latent_distribution="normal",
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
@@ -191,6 +191,7 @@ class TabGAN:
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
         self.qt_distribution = qt_distribution
+        self.latent_distribution = latent_distribution
         self.n_quantiles_int = n_quantiles_int
         self.qt_n_subsample = qt_n_subsample
         self.initialized_gan = False
@@ -736,7 +737,12 @@ class TabGAN:
         """
         Internal function for generating latent noise as input for generator
         """
-        return tf.random.normal([n, self.dim_latent])
+        if self.latent_distribution == "normal":
+            return tf.random.normal([n, self.dim_latent])
+        elif self.latent_distribution == "uniform":
+            return tf.random.uniform([n, self.dim_latent])
+        else:
+            raise ValueError("Parameter latent distribution must either be 'normal' or 'uniform'.")
 
     def gumbel_softmax(self, logits):
         """
