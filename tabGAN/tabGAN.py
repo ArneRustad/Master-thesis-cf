@@ -280,7 +280,8 @@ class TabGAN:
                 self.fix_quantile_share()
 
             if self.quantile_rand_transformation:
-                self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled)
+                self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled,
+                                                                              calc_data_bounds=reapply_qtr_every_time)
         else:
             self.scaler_num = StandardScaler()
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
