@@ -329,15 +329,16 @@ class TabGAN:
         # Create either tf dataset or numpy dataset in float32
         if self.tf_data_use:
             if self.reapply_qtr_every_time:
-                data_processed_numeric = tf.data.Dataset.range(self.nrow)
-                def fetch_qtr_data(ix):
-                    epsilon = tf.random.uniform([self.n_columns_num])
-                    return (epsilon * tf.gather(self.data_num_scaled_lower, ix) +
-                            (1 - epsilon) * tf.gather(self.data_num_scaled_upper, ix))
-                data_processed_numeric = data_processed_numeric.map(fetch_qtr_data)
-                print(self.data_num_scaled_lower)
-                print(self.data_num_scaled_upper)
-                print(next(iter(data_processed_numeric)))
+                # data_processed_numeric = tf.data.Dataset.range(self.nrow)
+                # def fetch_qtr_data(ix):
+                #     epsilon = np.random.uniform(size=self.n_columns_num)
+                #     return (epsilon * self.data_num_scaled_lower[ix] +
+                #             (1 - epsilon) * self.data_num_scaled_upper[ix])
+                # data_processed_numeric = data_processed_numeric.map(fetch_qtr_data)
+                data_processed_numeric = tf.data.Dataset.zip(
+                    (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled_lower, dtype=tf.float32)),
+                     tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled_upper, dtype=tf.float32)))
+                     )
             else:
                 data_processed_numeric = tf.data.Dataset.from_tensor_slices(
                     tf.cast(self.data_num_scaled, dtype=tf.float32)
@@ -509,8 +510,8 @@ class TabGAN:
         Internal function for performing the randomized quantile transformation
         """
         if calc_data_bounds:
-            self.data_num_scaled_lower = data
-            self.data_num_scaled_upper = data
+            data_num_scaled_lower = np.copy(data)
+            data_num_scaled_upper = np.copy(data)
         qt_transformer = self.scaler_num.named_transformers_["int"]
         references = np.copy(qt_transformer.references_)
         quantiles = np.copy(qt_transformer.quantiles_)
@@ -532,15 +533,21 @@ class TabGAN:
                     if self.qt_distribution == "normal":
                         data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
                         if calc_data_bounds:
-                            self.data_num_scaled_lower[mask, col] = scipy.stats.norm.ppf(low)
-                            self.data_num_scaled_upper[mask, col] = scipy.stats.norm.ppf(high)
+                            data_num_scaled_lower[mask, col] = scipy.stats.norm.ppf(low)
+                            data_num_scaled_upper[mask, col] = scipy.stats.norm.ppf(high)
                     elif self.qt_distribution == "uniform":
                         data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
                         if calc_data_bounds:
-                            self.data_num_scaled_lower[mask, col] = low
-                            self.data_num_scaled_upper[mask, col] = high
+                            data_num_scaled_lower[mask, col] = low
+                            data_num_scaled_upper[mask, col] = high
                     else:
                         raise ValueError("qt_distribution must be equal to normal or uniform")
+
+        if calc_data_bounds:
+            # self.data_num_scaled_lower = tf.cast(data_num_scaled_lower, dtype=tf.float32)
+            # self.data_num_scaled_upper = tf.cast(data_num_scaled_upper, dtype=tf.float32)
+            self.data_num_scaled_lower = data_num_scaled_lower.astype(np.float32)
+            self.data_num_scaled_upper = data_num_scaled_upper.astype(np.float32)
         return data
 
     def initialize_cptk(self):
@@ -821,6 +828,10 @@ class TabGAN:
             else:
                 if self.tf_data_use:
                     data_batch_real = next(self.data_processed_iter)
+                    if self.quantile_rand_transformation and self.reapply_qtr_every_time:
+                        epsilon = tf.random.uniform(shape=[n_batch, self.n_columns_num])
+                        data_batch_real = [(1 - epsilon) * data_batch_real[0][0] + epsilon * data_batch_real[0][1],
+                                           data_batch_real[1]]
                 else:
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
             self.train_step_critic(data_batch_real, n_batch, queries=queries, queries2=queries2)
