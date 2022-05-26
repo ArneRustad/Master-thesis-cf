@@ -28,11 +28,13 @@ class TabGAN:
     def __init__(self, data, batch_size=500, gan_method="WGAN-GP", wgan_lambda=10, pac=1,
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
-                 dim_latent=128, gumbel_temperature=0.5, n_critic=5,
+                 dim_latent=128, n_critic=5,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
                  qt_distribution="normal", latent_distribution="normal",
+                 oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
+                 reapply_qtr_every_k_epochs=None,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
                  ctgan_binomial_distance_floor=0,
                  train_step_critic_same_queries_for_critic_and_gen=True,
@@ -44,6 +46,7 @@ class TabGAN:
                  add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
+                 add_connection_activation_function=None,
                  dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
                  add_connection_query_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
@@ -84,7 +87,17 @@ class TabGAN:
         if activation_function in dict_activation_function.keys():
             activation_function = dict_activation_function[activation_function]
         else:
-            raise ValueError(f"The activation function {activation_function} is not (yet) implemented")
+            raise ValueError(f"The activation function {activation_function} is not (yet) implemented" 
+                             "Please choose another value for the parameter 'activation_function'")
+        if add_connection_activation_function is None:
+            pass
+        else:
+            add_connection_activation_function = add_connection_activation_function.lower()
+            if add_connection_activation_function in dict_activation_function.keys():
+                add_connection_activation_function = dict_activation_function[add_connection_activation_function]
+            else:
+                raise ValueError(f"The activation function {activation_function} is not (yet) implemented."
+                                 "Please choose another value for the parameter 'add_connection_activation_function'")
 
         if tf_data_use is None:
             if ctgan:
@@ -190,8 +203,10 @@ class TabGAN:
         self.max_quantile_share = max_quantile_share
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
+        self.reapply_qtr_every_k_epochs = reapply_qtr_every_k_epochs
         self.qt_distribution = qt_distribution
         self.latent_distribution = latent_distribution
+        self.oh_encoding_activation_function = oh_encoding_activation_function
         self.n_quantiles_int = n_quantiles_int
         self.qt_n_subsample = qt_n_subsample
         self.initialized_gan = False
@@ -213,6 +228,7 @@ class TabGAN:
         self.dropout_rate_generator = dropout_rate_generator
         self.add_connection_discrete_to_num = add_connection_discrete_to_num
         self.add_connection_num_to_discrete = add_connection_num_to_discrete
+        self.add_connection_activation_function = add_connection_activation_function
         self.add_connection_query_to_discrete = add_connection_query_to_discrete
         self.dim_hidden_layer_discrete_to_num = dim_hidden_layer_discrete_to_num
         self.dim_hidden_layer_num_to_discrete = dim_hidden_layer_num_to_discrete
@@ -264,6 +280,8 @@ class TabGAN:
                 self.fix_quantile_share()
 
             if self.quantile_rand_transformation:
+                if self.reapply_qtr_every_k_epochs is not None:
+                    self.data_num_scaled_not_random = self.data_num_scaled
                 self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled)
         else:
             self.scaler_num = StandardScaler()
@@ -691,7 +709,8 @@ class TabGAN:
         if self.add_connection_num_to_discrete:
             if self.dim_hidden_layer_num_to_discrete > 0:
                 numeric_to_discrete = Dense(self.dim_hidden_layer_num_to_discrete,
-                                            name="Hidden_numeric_to_discrete")(output_numeric)
+                                            name="Hidden_numeric_to_discrete",
+                                            activation=self.add_connection_activation_function)(output_numeric)
             else:
                 numeric_to_discrete = output_numeric
             potential_concat_hidden_and_num = concatenate((hidden, numeric_to_discrete),
@@ -711,8 +730,14 @@ class TabGAN:
             for i in range(self.n_columns_discrete):
                 output_discrete_i = Dense(self.categories_len[i],
                                           name="%s_output" % self.columns_discrete[i])(potential_concat_hidden_and_num)
-                output_discrete_sep.append(
-                    Activation("gumbel_softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
+                if self.oh_encoding_activation_function == "gumbel":
+                    output_discrete_sep.append(
+                        Activation("gumbel_softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
+                elif self.oh_encoding_activation_function == "softmax":
+                    output_discrete_sep.append(
+                        Activation("softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
+                else:
+                    raise ValueError("oh_encoding_activation_function must be either gumbel or softmax")
 
             if self.n_columns_discrete > 1:
                 output_discrete = concatenate(output_discrete_sep, name="Discrete_output")
@@ -723,7 +748,8 @@ class TabGAN:
         if self.add_connection_discrete_to_num:
             if self.dim_hidden_layer_discrete_to_num > 0:
                 discrete_to_numeric = Dense(self.dim_hidden_layer_discrete_to_num,
-                                            name="Hidden_discrete_to_numeric")(output_discrete)
+                                            name="Hidden_discrete_to_numeric",
+                                            activation=self.add_connection_activation_function)(output_discrete)
             else:
                 discrete_to_numeric = output_discrete
             concatenate_hidden_and_discrete = concatenate((hidden, discrete_to_numeric),
@@ -1111,6 +1137,25 @@ class TabGAN:
                 if plot_time:
                     time_before_epoch = time.perf_counter()
                 if epoch > 0:
+                    if self.quantile_rand_transformation and epoch % self.reapply_qtr_every_k_epochs == 0:
+                        self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled_not_random)
+                        self.data_processed = tf.data.Dataset.zip(
+                            (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled, dtype=tf.float32)),
+                             tf.data.Dataset.from_tensor_slices(tf.cast(self.data_discrete_oh, dtype=tf.float32))
+                             )
+                        )
+                    if self.tf_data_shuffle:
+                        self.data_processed = self.data_processed.shuffle(buffer_size=self.data.shape[0])
+                    self.data_processed = self.data_processed.repeat().batch(self.batch_size)
+                    if self.tf_data_prefetch:
+                        #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
+                        self.data_processed = self.data_processed.prefetch(tf.data.AUTOTUNE)
+                    if self.tf_data_cache:
+                        self.data_processed = self.data_processed.cache()
+                    #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
+                    self.data_processed_iter = iter(self.data_processed)
+
+
                     em_distance = g_loss = 0
                     if tf_profile_train_step_range[0] == epoch:
                         tf.profiler.experimental.start(tf_profile_log_dir)

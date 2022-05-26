@@ -212,14 +212,20 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["discrete_to_num", "num_to_discrete"]
     }
 
-    add_connection_advanced_vec = [(0, "None")]
-    add_connection_advanced_vec += [(dim_hidden_connection, connection)
+    add_connection_advanced_vec = [(0, "None", "None")]
+    add_connection_advanced_vec += [(dim_hidden_connection, connection, activation_function)
                                     for connection in ["discrete_to_num", "num_to_discrete"]
                                     for dim_hidden_connection in [0, 1, 5, 10, 25, 50, 100, 200]
-                                    ]
+                                    for activation_function in ["None", "LeakyReLU", "GELU"]]
+    if method == "ctabGAN-qtr":
+        add_connection_advanced_vec += [(0, "query_to_discrete", "None")]
 
-    def create_tabGAN_for_add_connection_advanced(dim_hidden_connection, connection):
+    def create_tabGAN_for_add_connection_advanced(dim_hidden_connection, connection,
+                                                  add_connection_activation_function):
         temp_args_dict = copy.deepcopy(method_args_dict)
+        if add_connection_activation_function == "None":
+            add_connection_activation_function = None
+        temp_args_dict["add_connection_activation_function"] = add_connection_activation_function
         if connection == "None":
             pass
         elif connection == "discrete_to_num":
@@ -228,9 +234,12 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         elif connection == "num_to_discrete":
             temp_args_dict["add_connection_num_to_discrete"] = True
             temp_args_dict["dim_hidden_layer_num_to_discrete"] = dim_hidden_connection
+        elif connection == "query_to_discrete":
+            temp_args_dict_dict["add_connection_query_to_discrete"] = True
         else:
             raise ValueError("For the hyperparameter tuning add_connection_advanced then the connection parameter"
-                             " only takes as input 'None', 'discrete_to_num' or 'num_to_discrete'.")
+                             " only takes as input 'None', 'discrete_to_num' or 'num_to_discrete' or" 
+                             " 'query_to_discrete'")
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr
 
@@ -240,7 +249,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_add_connection_advanced,
         "batch_size": BATCH_SIZE,
-        "hyperparams_subname": ["dim_hidden_connection", "connection"]
+        "hyperparams_subname": ["dim_hidden_connection", "connection", "connection_activation_function"]
     }
 
     activation_function_vec = [("GELU", False), ("GELU", True)]
@@ -345,6 +354,23 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "tabGAN_func": create_tabGAN_for_qt_transformation,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": ["qtr_spread", "qt_distribution", "latent_distribution"]
+    }
+
+    oh_encoding_activation_function_vec = ["softmax", "gumbel"]
+
+    def create_tabGAN_for_oh_encoding_activation_function(oh_encoding_activation_function):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["oh_encoding_activation_function"] = oh_encoding_activation_function
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["oh_encoding_activation_function"] = {
+        "vec": oh_encoding_activation_function_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_oh_encoding_activation_function,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
     }
 
     return hp_info
