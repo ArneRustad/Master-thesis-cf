@@ -34,7 +34,7 @@ class TabGAN:
                  oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
-                 reapply_qtr_every_time=False,
+                 reapply_qtr_continuously=False,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
                  ctgan_binomial_distance_floor=0,
                  train_step_critic_same_queries_for_critic_and_gen=True,
@@ -203,7 +203,7 @@ class TabGAN:
         self.max_quantile_share = max_quantile_share
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
-        self.reapply_qtr_every_time = reapply_qtr_every_time
+        self.reapply_qtr_continuously = reapply_qtr_continuously
         self.qt_distribution = qt_distribution
         self.latent_distribution = latent_distribution
         self.oh_encoding_activation_function = oh_encoding_activation_function
@@ -281,7 +281,7 @@ class TabGAN:
 
             if self.quantile_rand_transformation:
                 self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled,
-                                                                              calc_data_bounds=reapply_qtr_every_time)
+                                                                              calc_data_bounds=reapply_qtr_continuously)
         else:
             self.scaler_num = StandardScaler()
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
@@ -328,7 +328,7 @@ class TabGAN:
 
         # Create either tf dataset or numpy dataset in float32
         if self.tf_data_use:
-            if self.reapply_qtr_every_time:
+            if self.reapply_qtr_continuously:
                 # data_processed_numeric = tf.data.Dataset.range(self.nrow)
                 # def fetch_qtr_data(ix):
                 #     epsilon = np.random.uniform(size=self.n_columns_num)
@@ -828,7 +828,7 @@ class TabGAN:
             else:
                 if self.tf_data_use:
                     data_batch_real = next(self.data_processed_iter)
-                    if self.quantile_rand_transformation and self.reapply_qtr_every_time:
+                    if self.quantile_rand_transformation and self.reapply_qtr_continuously:
                         epsilon = tf.random.uniform(shape=[n_batch, self.n_columns_num])
                         data_batch_real = [(1 - epsilon) * data_batch_real[0][0] + epsilon * data_batch_real[0][1],
                                            data_batch_real[1]]

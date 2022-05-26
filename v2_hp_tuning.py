@@ -373,5 +373,21 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
+    reapply_qtr_continuously_vec = [False, True]
+    def create_tabGAN_for_reapply_qtr_continuously(reapply_qtr_continuously):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["reapply_qtr_continuously"] = reapply_qtr_continuously
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["reapply_qtr_continuously"] = {
+        "vec": reapply_qtr_continuously_vec,
+        "n_synthetic_datasets": 25,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_reapply_qtr_continuously,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
     return hp_info
 
