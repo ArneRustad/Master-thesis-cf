@@ -34,7 +34,7 @@ class TabGAN:
                  oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
-                 reapply_qtr_every_k_epochs=None,
+                 reapply_qtr_every_time=False,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
                  ctgan_binomial_distance_floor=0,
                  train_step_critic_same_queries_for_critic_and_gen=True,
@@ -203,7 +203,7 @@ class TabGAN:
         self.max_quantile_share = max_quantile_share
         self.print_quantile_shares = print_quantile_shares
         self.quantile_rand_transformation = quantile_rand_transformation
-        self.reapply_qtr_every_k_epochs = reapply_qtr_every_k_epochs
+        self.reapply_qtr_every_time = reapply_qtr_every_time
         self.qt_distribution = qt_distribution
         self.latent_distribution = latent_distribution
         self.oh_encoding_activation_function = oh_encoding_activation_function
@@ -280,8 +280,6 @@ class TabGAN:
                 self.fix_quantile_share()
 
             if self.quantile_rand_transformation:
-                if self.reapply_qtr_every_k_epochs is not None:
-                    self.data_num_scaled_not_random = self.data_num_scaled
                 self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled)
         else:
             self.scaler_num = StandardScaler()
@@ -306,8 +304,8 @@ class TabGAN:
         self.column_discrete_n_cats = [len(col_cat_vec) for col_cat_vec in self.oh_encoder.categories_]
         self.column_discrete_n_cats_cumulative = np.cumsum(self.column_discrete_n_cats)
         if self.noise_discrete_unif_max > 0:
-            noise_discrete = np.random.uniform(low = 0, high = self.noise_discrete_unif_max,
-                                              size = self.data_discrete_oh.shape)
+            noise_discrete = np.random.uniform(low=0, high=self.noise_discrete_unif_max,
+                                              size=self.data_discrete_oh.shape)
             self.data_discrete_oh += noise_discrete * np.where(self.data_discrete_oh > 0.5, -1, 1)
 
         self.categories_len = [len(i) for i in self.oh_encoder.categories_]
@@ -329,8 +327,22 @@ class TabGAN:
 
         # Create either tf dataset or numpy dataset in float32
         if self.tf_data_use:
+            if self.reapply_qtr_every_time:
+                data_processed_numeric = tf.data.Dataset.range(self.nrow)
+                def fetch_qtr_data(ix):
+                    epsilon = tf.random.uniform([self.n_columns_num])
+                    return (epsilon * tf.gather(self.data_num_scaled_lower, ix) +
+                            (1 - epsilon) * tf.gather(self.data_num_scaled_upper, ix))
+                data_processed_numeric = data_processed_numeric.map(fetch_qtr_data)
+                print(self.data_num_scaled_lower)
+                print(self.data_num_scaled_upper)
+                print(next(iter(data_processed_numeric)))
+            else:
+                data_processed_numeric = tf.data.Dataset.from_tensor_slices(
+                    tf.cast(self.data_num_scaled, dtype=tf.float32)
+                )
             self.data_processed = tf.data.Dataset.zip(
-                (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled, dtype=tf.float32)),
+                (data_processed_numeric,
                  tf.data.Dataset.from_tensor_slices(tf.cast(self.data_discrete_oh, dtype=tf.float32))
                  )
             )
@@ -491,10 +503,13 @@ class TabGAN:
                     qt_transformer.quantiles_[available_quantile_indices, col_qt_idx] = col_remaining_values
                 qt_transformer.quantiles_[:, col_qt_idx] = np.sort(qt_transformer.quantiles_[:, col_qt_idx])
 
-    def randomize_quantile_transformation(self, data):
+    def randomize_quantile_transformation(self, data, calc_data_bounds=False):
         """
         Internal function for performing the randomized quantile transformation
         """
+        if calc_data_bounds:
+            self.data_num_scaled_lower = data
+            self.data_num_scaled_upper = data
         qt_transformer = self.scaler_num.named_transformers_["int"]
         references = np.copy(qt_transformer.references_)
         quantiles = np.copy(qt_transformer.quantiles_)
@@ -515,8 +530,14 @@ class TabGAN:
                     high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_spread / 2)
                     if self.qt_distribution == "normal":
                         data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
+                        if calc_data_bounds:
+                            self.data_num_scaled_lower[mask, col] = scipy.stats.norm.ppf(low)
+                            self.data_num_scaled_upper[mask, col] = scipy.stats.norm.ppf(high)
                     elif self.qt_distribution == "uniform":
                         data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
+                        if calc_data_bounds:
+                            self.data_num_scaled_lower[mask, col] = low
+                            self.data_num_scaled_upper[mask, col] = high
                     else:
                         raise ValueError("qt_distribution must be equal to normal or uniform")
         return data
@@ -1137,25 +1158,6 @@ class TabGAN:
                 if plot_time:
                     time_before_epoch = time.perf_counter()
                 if epoch > 0:
-                    if self.quantile_rand_transformation and epoch % self.reapply_qtr_every_k_epochs == 0:
-                        self.data_num_scaled = self.randomize_quantile_transformation(self.data_num_scaled_not_random)
-                        self.data_processed = tf.data.Dataset.zip(
-                            (tf.data.Dataset.from_tensor_slices(tf.cast(self.data_num_scaled, dtype=tf.float32)),
-                             tf.data.Dataset.from_tensor_slices(tf.cast(self.data_discrete_oh, dtype=tf.float32))
-                             )
-                        )
-                    if self.tf_data_shuffle:
-                        self.data_processed = self.data_processed.shuffle(buffer_size=self.data.shape[0])
-                    self.data_processed = self.data_processed.repeat().batch(self.batch_size)
-                    if self.tf_data_prefetch:
-                        #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
-                        self.data_processed = self.data_processed.prefetch(tf.data.AUTOTUNE)
-                    if self.tf_data_cache:
-                        self.data_processed = self.data_processed.cache()
-                    #self.data_processed = self.data_processed.apply(tf.data.experimental.prefetch_to_device("/gpu:0"))
-                    self.data_processed_iter = iter(self.data_processed)
-
-
                     em_distance = g_loss = 0
                     if tf_profile_train_step_range[0] == epoch:
                         tf.profiler.experimental.start(tf_profile_log_dir)
