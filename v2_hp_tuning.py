@@ -389,19 +389,21 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
-    spread_and_activation_vec = [(qtr_spread, activation_function)
+    spread_and_activation_vec = [(qtr_spread, activation_function, reapply_qtr_continuously)
                                  for activation_function in ["GELU", "GELU_approx", "ReLU", "LeakyReLU", "SquaredReLU",
                                                              "ELU", "Swish", "SELU", "LeakySquaredReLU", "Mish"]
                                  for qtr_spread in np.round(np.arange(0, 1.01, 0.1), 3).tolist()
+                                 for reapply_qtr_continuously in [False]
                                  ]
 
-    def create_tabGAN_for_spread_and_activation(qtr_spread, activation_function):
+    def create_tabGAN_for_spread_and_activation(qtr_spread, activation_function, reapply_qtr_continuously):
         temp_args_dict = copy.deepcopy(method_args_dict)
         if activation_function.lower() == "gelu_approx":
             temp_args_dict["gelu_approximate"] = True
             activation_function = "gelu"
         temp_args_dict["activation_function"] = activation_function
         temp_args_dict["qtr_spread"] = qtr_spread
+        temp_args_dict["reapply_qtr_continuously"] = reapply_qtr_continuously
 
         tg_qtr = TabGAN(data_train, **temp_args_dict)
         return tg_qtr
@@ -412,7 +414,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_spread_and_activation,
         "batch_size": BATCH_SIZE,
-        "hyperparams_subname": ["qtr_spread", "activation_function"]
+        "hyperparams_subname": ["qtr_spread", "activation_function", "reapply_qtr_continuously"]
     }
 
     return hp_info

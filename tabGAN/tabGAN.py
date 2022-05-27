@@ -65,6 +65,8 @@ class TabGAN:
 
         if activation_function.lower() == "mish":
             from tensorflow_addons.activations import mish
+        else:
+            mish = None
         # Create variable defaults if needed
         if n_quantiles_int > data.shape[0]:
             n_quantiles_int = data.shape[0]
