@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
                                      ELU, Embedding, Activation, Dropout)
 from tensorflow.keras.activations import gelu, selu, swish, relu
-from tensorflow_addons.activations import mish
+#from tensorflow_addons.activations import mish # module tensorflow_addons only loaded if needed
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
@@ -62,6 +62,9 @@ class TabGAN:
                  jit_compile=False, jit_compile_critic_step=None, jit_compile_gen_step=None,
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
+
+        if activation_function.lower() == "mish":
+            from tensorflow_addons.activations import mish
         # Create variable defaults if needed
         if n_quantiles_int > data.shape[0]:
             n_quantiles_int = data.shape[0]
