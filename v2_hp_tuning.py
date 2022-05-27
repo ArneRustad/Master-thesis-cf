@@ -254,7 +254,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     activation_function_vec = [("GELU", False), ("GELU", True)]
     activation_function_vec += [(function, False) for function in ["ReLU", "LeakyReLU", "SquaredReLU", "ELU", "Swish",
-                                                                   "SELU", "LeakySquaredReLU"]]
+                                                                   "SELU", "LeakySquaredReLU", "Mish"]]
 
     def create_tabGAN_for_activation_function(activation_function, approximate):
         temp_args_dict = copy.deepcopy(method_args_dict)
@@ -387,6 +387,32 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "tabGAN_func": create_tabGAN_for_reapply_qtr_continuously,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": None
+    }
+
+    spread_and_activation_vec = [(qtr_spread, activation_function)
+                                 for activation_function in ["GELU", "GELU_approx", "ReLU", "LeakyReLU", "SquaredReLU",
+                                                             "ELU", "Swish", "SELU", "LeakySquaredReLU", "Mish"]
+                                 for qtr_spread in np.round(np.arange(0, 1.01, 0.1), 3).tolist()
+                                 ]
+
+    def create_tabGAN_for_spread_and_activation(qtr_spread, activation_function):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        if activation_function.lower() == "gelu_approx":
+            temp_args_dict["gelu_approximate"] = True
+            activation_function = "gelu"
+        temp_args_dict["activation_function"] = activation_function
+        temp_args_dict["qtr_spread"] = qtr_spread
+
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["spread_and_activation"] = {
+        "vec": spread_and_activation_vec,
+        "n_synthetic_datasets": 5,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_spread_and_activation,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["qtr_spread", "activation_function"]
     }
 
     return hp_info

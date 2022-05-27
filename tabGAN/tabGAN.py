@@ -12,6 +12,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
                                      ELU, Embedding, Activation, Dropout)
 from tensorflow.keras.activations import gelu, selu, swish, relu
+from tensorflow_addons.activations import mish
 import tensorflow_probability as tfp
 tfd = tfp.distributions
 
@@ -80,6 +81,7 @@ class TabGAN:
             "gelu": lambda x: gelu(x, approximate=gelu_approximate),
             "selu": selu,
             "swish": swish,
+            "mish": mish,
             "elu": ELU(alpha=elu_alpha),
             "squaredrelu": lambda x: tf.math.square(relu(x)),
             "leakysquaredrelu": lambda x: tf.where(x > 0, tf.math.square(relu(x)), leaky_relu_alpha * x)
