@@ -417,5 +417,32 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["qtr_spread", "activation_function", "reapply_qtr_continuously"]
     }
 
+    spread_and_activations_vec = [(qtr_spread, (activation_function_generator, activation_function_critic),
+                                   reapply_qtr_continuously)
+                                  for activation_function_generator in ["GELU", "ReLU", "LeakyReLU", "Mish"]
+                                  for activation_function_critic in ["GELU", "ReLU", "LeakyReLU", "Mish"]
+                                  for qtr_spread in [1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
+                                  for reapply_qtr_continuously in [False]
+                                  ]
+
+    def create_tabGAN_for_spread_and_activations(qtr_spread, activation_functions, reapply_qtr_continuously):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["activation_function_generator"] = activation_functions[0]
+        temp_args_dict["activation_function_critic"] = activation_functions[1]
+        temp_args_dict["qtr_spread"] = qtr_spread
+        temp_args_dict["reapply_qtr_continuously"] = reapply_qtr_continuously
+
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["spread_and_activations"] = {
+        "vec": spread_and_activations_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_spread_and_activations,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["qtr_spread", "activation_function_generator_and_critic", "reapply_qtr_continuously"]
+    }
+
     return hp_info
 

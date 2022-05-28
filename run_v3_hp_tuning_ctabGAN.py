@@ -10,7 +10,9 @@ METHOD_NAME = "ctabGAN-qtr"
 hp_info = fetch_hp_info(method=METHOD_NAME, version=3)
 hp_name_vec = ["qtr_spread", "noise_ctgan", "gumbel_temperature", "add_connection",
                "oh_encoding_choices", "activation_function", "wgan_penalty_query",
-               "add_connection_advanced"]
+               "add_connection_advanced", "qt_transformation", "oh_encoding_activation_function", #Count 10
+               "reapply_qtr_continuously", "spread_and_activation",
+               "spread_and_activations"]
 hp_name_restart_vec = []
 
 slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')

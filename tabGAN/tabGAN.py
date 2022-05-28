@@ -43,7 +43,7 @@ class TabGAN:
                  train_step_critic_query_wgan_penalty=True,
                  critic_use_query_input=True,
                  activation_function="LeakyReLU", leaky_relu_alpha=0.3, gelu_approximate=False,
-                 elu_alpha=1.0,
+                 elu_alpha=1.0, activation_function_critic=None, activation_function_generator=None,
                  add_dropout_critic=[], add_dropout_generator=[],
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
@@ -63,7 +63,20 @@ class TabGAN:
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
 
-        if activation_function.lower() == "mish":
+        def lower_if_not_None(str):
+            if str is not None:
+                str = str.lower()
+            return str
+
+        if activation_function_critic is None:
+            activation_function_critic = activation_function
+        activation_function_critic = activation_function_critic.lower()
+        if activation_function_generator is None:
+            activation_function_generator = activation_function
+        activation_function_generator = activation_function_generator.lower()
+
+        if "mish" in [activation_function_critic, activation_function_generator] or \
+                (oh_encoding_activation_function is not None and oh_encoding_activation_function.lower() == "mish"):
             from tensorflow_addons.activations import mish
         else:
             mish = None
@@ -79,8 +92,8 @@ class TabGAN:
                            "string 'noise_discrete_unif_max'. No other input to the parameter is allowed)")
 
 
-        activation_function = activation_function.lower()
         dict_activation_function = {
+            "none": lambda x: x,
             "leakyrelu": LeakyReLU(alpha=leaky_relu_alpha),
             "relu": ReLU(),
             "gelu": lambda x: gelu(x, approximate=gelu_approximate),
@@ -91,11 +104,18 @@ class TabGAN:
             "squaredrelu": lambda x: tf.math.square(relu(x)),
             "leakysquaredrelu": lambda x: tf.where(x > 0, tf.math.square(relu(x)), leaky_relu_alpha * x)
         }
-        if activation_function in dict_activation_function.keys():
-            activation_function = dict_activation_function[activation_function]
+        if activation_function_critic in dict_activation_function.keys():
+            activation_function_critic = dict_activation_function[activation_function_critic]
         else:
-            raise ValueError(f"The activation function {activation_function} is not (yet) implemented" 
-                             "Please choose another value for the parameter 'activation_function'")
+            raise ValueError(f"The activation function {activation_function_critic} is not (yet) implemented" 
+                             "Please choose another value for the parameter 'activation_function_critic'")
+
+        if activation_function_generator in dict_activation_function.keys():
+            activation_function_generator = dict_activation_function[activation_function_generator]
+        else:
+            raise ValueError(f"The activation function {activation_function_generator} is not (yet) implemented"
+                             "Please choose another value for the parameter 'activation_function_generator")
+
         if add_connection_activation_function is None:
             pass
         else:
@@ -228,6 +248,8 @@ class TabGAN:
         self.train_step_critic_query_wgan_penalty = train_step_critic_query_wgan_penalty
         self.critic_use_query_input = critic_use_query_input
         self.activation_function = activation_function
+        self.activation_function_critic = activation_function_critic
+        self.activation_function_generator = activation_function_generator
         self.leaky_relu_alpha = leaky_relu_alpha
         self.add_dropout_critic = add_dropout_critic
         self.add_dropout_generator = add_dropout_generator
@@ -706,7 +728,7 @@ class TabGAN:
         if 0 in self.add_dropout_critic:
             hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_critic_layers):
-            hidden = Dense(self.dim_hidden_critic[i], activation=self.activation_function,
+            hidden = Dense(self.dim_hidden_critic[i], activation=self.activation_function_critic,
                            name=f"hidden{i+1}")(hidden)
             if (i+1) in self.add_dropout_critic:
                 hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout{i+1}")(hidden)
@@ -735,7 +757,7 @@ class TabGAN:
         if 0 in self.add_dropout_generator:
             hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_generator_layers):
-            hidden = Dense(self.dim_hidden_generator[i], activation=self.activation_function,
+            hidden = Dense(self.dim_hidden_generator[i], activation=self.activation_function_generator,
                            name=f"hidden{i+1}")(hidden)
             if (i+1) in self.add_dropout_generator:
                 hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)
