@@ -35,6 +35,7 @@ class TabGAN:
                  oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
                  n_quantiles_int=1000, qt_n_subsample=1e5,
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
+                 qtr_uniform_on_normal_scale=False, qtr_distribution="uniform", qtr_beta_distribution_parameter=1,
                  reapply_qtr_continuously=False,
                  ctgan=False, ctgan_log_frequency=True, ctgan_binomial_loss=True,
                  ctgan_binomial_distance_floor=0,
@@ -239,6 +240,9 @@ class TabGAN:
         self.initialized_gan = False
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
+        self.qtr_uniform_on_normal_scale = qtr_uniform_on_normal_scale
+        self.qtr_distribution = qtr_distribution
+        self.qtr_beta_distribution_parameter = qtr_beta_distribution_parameter
         self.ctgan = ctgan
         self.ctgan_log_frequency = ctgan_log_frequency
         self.ctgan_binomial_loss = ctgan_binomial_loss
@@ -559,18 +563,37 @@ class TabGAN:
                     curr_reference_range = curr_references[-1] - curr_references[0]
                     low = curr_references[0] + curr_reference_range * (0.5 - self.qtr_spread / 2)
                     high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_spread / 2)
-                    if self.qt_distribution == "normal":
-                        data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
-                        if calc_data_bounds:
-                            data_num_scaled_lower[mask, col] = scipy.stats.norm.ppf(low)
-                            data_num_scaled_upper[mask, col] = scipy.stats.norm.ppf(high)
-                    elif self.qt_distribution == "uniform":
-                        data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
+
+                    if self.qtr_distribution == "uniform":
+                        if self.qt_distribution == "normal" and not self.qtr_uniform_on_normal_scale:
+                            data[mask, col] = scipy.stats.norm.ppf(np.random.uniform(low=low, high=high, size=n_obs_curr))
+                            if calc_data_bounds:
+                                data_num_scaled_lower[mask, col] = scipy.stats.norm.ppf(low)
+                                data_num_scaled_upper[mask, col] = scipy.stats.norm.ppf(high)
+                        elif self.qt_distribution == "normal" and self.qtr_uniform_on_normal_scale:
+                            low = scipy.stats.norm.ppf(low)
+                            high = scipy.stats.norm.ppf(high)
+                            data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
+                            if calc_data_bounds:
+                                data_num_scaled_lower[mask, col] = low
+                                data_num_scaled_upper[mask, col] = high
+                        elif self.qt_distribution == "uniform":
+                            data[mask, col] = np.random.uniform(low=low, high=high, size=n_obs_curr)
+                            if calc_data_bounds:
+                                data_num_scaled_lower[mask, col] = low
+                                data_num_scaled_upper[mask, col] = high
+                        else:
+                            raise ValueError("qt_distribution must be equal to normal or uniform")
+                    elif self.qtr_distribution == "beta":
+                        if self.qt_distribution == "normal":
+                            low = scipy.stats.norm.ppf(low)
+                            high = scipy.stats.norm.ppf(high)
+                        data[mask, col] = low + np.random.beta(a=self.qtr_beta_distribution_parameter,
+                                                               b=self.qtr_beta_distribution_parameter,
+                                                               size=n_obs_curr) * (high - low)
                         if calc_data_bounds:
                             data_num_scaled_lower[mask, col] = low
                             data_num_scaled_upper[mask, col] = high
-                    else:
-                        raise ValueError("qt_distribution must be equal to normal or uniform")
 
         if calc_data_bounds:
             # self.data_num_scaled_lower = tf.cast(data_num_scaled_lower, dtype=tf.float32)

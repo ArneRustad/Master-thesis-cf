@@ -444,5 +444,49 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["qtr_spread", "activation_function_generator_and_critic", "reapply_qtr_continuously"]
     }
 
+    qtr_vec = [(qtr_spread, qtr_uniform_on_normal_scale, reapply_qtr_continuously)
+               for qtr_uniform_on_normal_scale in [False, True]
+               for qtr_spread in np.round(np.arange(0, 1.01, 0.1), 2)
+               for reapply_qtr_continuously in [False]]
+
+    def create_tabGAN_for_qtr(qtr_spread, qtr_uniform_on_normal_scale, reapply_qtr_continuously):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["qtr_spread"] = qtr_spread
+        temp_args_dict["qtr_uniform_on_normal_scale"] = qtr_uniform_on_normal_scale
+        temp_args_dict["reapply_qtr_continuously"] = reapply_qtr_continuously
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["qtr"] = {
+        "vec": qtr_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_qtr,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["qtr_spread", "qtr_uniform_on_normal_scale", "reapply_qtr_continuously"]
+    }
+
+    qtr_distribution_beta_param_vec = np.round(np.arange(1, 5), 3).tolist()
+
+    def create_tabGAN_for_qtr_distribution_beta_param(beta_param):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["qtr_spread"] = 1
+        temp_args_dict["reapply_qtr_continuously"] = False
+        temp_args_dict["qtr_distribution"] = "beta"
+        temp_args_dict["qtr_beta_distribution_parameter"] = beta_param
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["qtr_distribution_beta_param"] = {
+        "vec": qtr_distribution_beta_param_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_qtr_distribution_beta_param,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
+
+
     return hp_info
 
