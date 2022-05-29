@@ -410,7 +410,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["spread_and_activation"] = {
         "vec": spread_and_activation_vec,
-        "n_synthetic_datasets": 5,
+        "n_synthetic_datasets": 10,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_spread_and_activation,
         "batch_size": BATCH_SIZE,
@@ -421,7 +421,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
                                    reapply_qtr_continuously)
                                   for activation_function_generator in ["GELU", "ReLU", "LeakyReLU", "Mish"]
                                   for activation_function_critic in ["GELU", "ReLU", "LeakyReLU", "Mish"]
-                                  for qtr_spread in [1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
+                                  for qtr_spread in [0, 1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
                                   for reapply_qtr_continuously in [False]
                                   ]
 
