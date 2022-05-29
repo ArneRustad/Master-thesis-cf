@@ -118,12 +118,13 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
         subfolders = new_subfolders
         hyperparams_vec = new_hyperparams_vec
 
+    metrics_all = ["Accuracy", "AUC", "F1_0", "F1_1", "F1"]
     with tqdm(total=len(subfolders) * n_synthetic_datasets) as pbar:
         models = subfolders
         result = pd.DataFrame({"Hyperparameters": models, "Value Accuracy": 0, "Value AUC": 0,
                                "Value F1": 0, "Value F1_0": 0, "Value F1_1": 0,
                                "SD Accuracy": 0, "SD AUC": 0, "SD F1": 0, "SD F1_0": 0, "SD F1_1": 0})
-        metrics_result, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True)
+        metrics_result, categories = fit_and_evaluate_xgboost(data_train, data_test, retcats=True, metrics=metrics_all)
 
         if plot_observations:
             accuracy_obs = np.empty((len(subfolders), n_synthetic_datasets))
@@ -153,7 +154,8 @@ def evaluate_hyperparams_through_prediction(data_train, data_test, dataset_dir, 
                         print(f"{fake_train.shape[0] - fake_train_wo_nan.shape[0]} NA found at path: {path}")
                     if drop_na:
                         fake_train=fake_train_wo_nan
-                metrics_result = fit_and_evaluate_xgboost(fake_train, data_test, categories=categories)
+                metrics_result = fit_and_evaluate_xgboost(fake_train, data_test, categories=categories,
+                                                          metrics=metrics_all)
                 accuracy_vec[j] = metrics_result["accuracy"]
                 auc_vec[j] = metrics_result["auc"]
                 f1_vec[j] = metrics_result["f1"]
