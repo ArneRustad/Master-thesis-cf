@@ -421,7 +421,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
                                    reapply_qtr_continuously)
                                   for activation_function_generator in ["GELU", "ReLU", "LeakyReLU", "Mish"]
                                   for activation_function_critic in ["GELU", "ReLU", "LeakyReLU", "Mish"]
-                                  for qtr_spread in [0, 1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
+                                  for qtr_spread in [0, 0.1, 0.8, 1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
                                   for reapply_qtr_continuously in [False]
                                   ]
 
@@ -486,7 +486,22 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
+    adam_beta1_vec = np.round(np.arange(0.05, 1.01, 0.05), 3).tolist()
 
+    def create_tabGAN_for_adam_beta1(adam_beta1):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["adam_beta1"] = adam_beta1
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["adam_beta1"] = {
+        "vec": adam_beta1_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_adam_beta1,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
 
     return hp_info
 
