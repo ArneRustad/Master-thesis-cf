@@ -422,7 +422,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
                                   for activation_function_generator in ["GELU", "ReLU", "LeakyReLU", "Mish"]
                                   for activation_function_critic in ["GELU", "ReLU", "LeakyReLU", "Mish"]
                                   for qtr_spread in [0, 0.1, 0.8, 1] #np.round(np.arange(0, 1.01, 0.1), 3).tolist()
-                                  for reapply_qtr_continuously in [False]
+                                  for reapply_qtr_continuously in [False, True]
                                   ]
 
     def create_tabGAN_for_spread_and_activations(qtr_spread, activation_functions, reapply_qtr_continuously):
