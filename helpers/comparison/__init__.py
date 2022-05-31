@@ -1,0 +1,2 @@
+import setup
+from synthesize_datasets_for_ml_comparison import generate_multiple_datasets_for_comparison as synthesize_multiple_datasets

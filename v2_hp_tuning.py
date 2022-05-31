@@ -106,6 +106,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     if version >= 4:
         method_args_dict["activation_function"] = "Mish"
         method_args_dict["qtr_spread"] = 1
+        method_args_dict["adam_beta1"] = 0.9
 
     hp_info = {}
 
@@ -217,10 +218,13 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     }
 
     add_connection_advanced_vec = [(0, "None", "None")]
+    add_connection_activation_function_vec = ["None", "LeakyReLU", "GELU"]
+    if version >= 4:
+        add_connection_activation_function_vec += "Mish"
     add_connection_advanced_vec += [(dim_hidden_connection, connection, activation_function)
                                     for connection in ["discrete_to_num", "num_to_discrete"]
                                     for dim_hidden_connection in [0, 1, 5, 10, 25, 50, 100, 200]
-                                    for activation_function in ["None", "LeakyReLU", "GELU"]]
+                                    for activation_function in add_connection_activation_function_vec]
     if method == "ctabGAN-qtr":
         add_connection_advanced_vec += [(0, "query_to_discrete", "None")]
 
