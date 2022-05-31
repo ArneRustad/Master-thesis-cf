@@ -103,6 +103,10 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     else:
         N_EPOCHS = 100
 
+    if version >= 4:
+        method_args_dict["activation_function"] = "Mish"
+        method_args_dict["qtr_spread"] = 1
+
     hp_info = {}
 
     def create_tabGAN_for_qtr_spread(qtr_spread):
