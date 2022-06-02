@@ -33,7 +33,7 @@ class TabGAN:
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
                  qt_distribution="normal", latent_distribution="normal",
                  oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
-                 n_quantiles_int=1000, qt_n_subsample=1e5,
+                 n_quantiles_int=1000, qt_n_subsample=int(1e5),
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  qtr_uniform_on_normal_scale=False, qtr_distribution="uniform", qtr_beta_distribution_parameter=1,
                  reapply_qtr_continuously=False,
@@ -63,11 +63,6 @@ class TabGAN:
                  jit_compile=False, jit_compile_critic_step=None, jit_compile_gen_step=None,
                  jit_compile_numpy_data_step=None, jit_compile_generate_latent=None, jit_compile_em_distance=None,
                  default_epochs_to_train=None):
-
-        def lower_if_not_None(str):
-            if str is not None:
-                str = str.lower()
-            return str
 
         if activation_function_critic is None:
             activation_function_critic = activation_function
@@ -303,10 +298,10 @@ class TabGAN:
         self.columns_num_int_pos = np.arange(len(self.columns_num))[self.columns_num_int_mask]
         self.columns_float = self.columns_num[np.logical_not(self.columns_num_int_mask)]
         if self.quantile_transformation_int:
-            self.scaler_num = ColumnTransformer(transformers=[("float", StandardScaler(), self.columns_float), (
+            self.scaler_num = ColumnTransformer(transformers=[("float", StandardScaler(), []), (
             "int", QuantileTransformer(n_quantiles=n_quantiles_int, output_distribution=self.qt_distribution,
                                        subsample=self.qt_n_subsample),
-            self.columns_int)])
+            self.columns_num)])
             self.data_num_scaled = self.scaler_num.fit_transform(self.data_num)
 
             if self.max_quantile_share < 1:
@@ -624,16 +619,16 @@ class TabGAN:
         """
         data_discrete = pd.DataFrame(self.oh_encoder.inverse_transform(data_discrete_oh), columns=self.columns_discrete)
         if self.quantile_transformation_int:
-            if len(self.columns_float) > 0:
+            if False:#len(self.columns_float) > 0:
                 data_float = pd.DataFrame(self.scaler_num.named_transformers_["float"].inverse_transform(
                     data_num_scaled[:, np.logical_not(self.columns_num_int_mask)]), columns=self.columns_float)
             else:
                 data_float = None
 
-            if len(self.columns_int) > 0:
-                data_int_scaled = pd.DataFrame(data_num_scaled[:, self.columns_num_int_mask], columns=self.columns_int)
+            if len(self.columns_num) > 0:
+                data_int_scaled = pd.DataFrame(data_num_scaled, columns=self.columns_num)
                 data_int = pd.DataFrame(self.scaler_num.named_transformers_["int"].inverse_transform(data_int_scaled),
-                    columns=self.columns_int)
+                    columns=self.columns_num)
             else:
                 data_int = None
         else:

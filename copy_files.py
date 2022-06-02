@@ -46,6 +46,8 @@ def transfer_files_between_folders(src_dir, dst_dir, filetype="", progress_bar=T
     if add_rel_path:
         src_dir = os.path.join(src_dir, add_rel_path)
         dst_dir = os.path.join(dst_dir, add_rel_path)
+    
+    os.makedirs(dst_dir, exist_ok=True)
 
     # Check if unresolved copy from last transfer
     assert cache_name[-4:] == ".pkl"

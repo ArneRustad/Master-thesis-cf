@@ -1,2 +1,4 @@
-import setup
-from synthesize_datasets_for_ml_comparison import generate_multiple_datasets_for_comparison as synthesize_multiple_datasets
+from . import setup
+from .synthesize_datasets_for_ml_comparison import generate_multiple_datasets_for_comparison as synthesize_multiple_datasets
+from .eval_ml_efficacy_comparison import eval_ml_efficacy_for_synthesizers as eval_ml_efficacy
+from .eval_ml_efficacy_comparison import tidy_comparison_ml_efficacy_output as tidy_ml_efficacy_output

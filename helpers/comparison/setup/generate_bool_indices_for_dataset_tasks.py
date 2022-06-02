@@ -2,6 +2,7 @@ import os
 from tqdm.auto import tqdm
 from src import constants as const
 import numpy as np
+import pandas as pd
 
 def generate_bool_indices_for_dataset_tasks(datasets=["covtype_edited", "creditcard_edited", "news_edited"],
                                             n_synthetic_datasets=10,
@@ -15,23 +16,23 @@ def generate_bool_indices_for_dataset_tasks(datasets=["covtype_edited", "creditc
         for dataset_task in datasets:
             curr_dataset = pd.read_csv(os.path.join(dataset_dir, dataset_task + ".csv"))
             curr_dir_dataset_train_indices = os.path.join(dataset_dir, "indices", dataset_task)
-            os.makedirs(curr_dir_dataset_train_indices)
+            os.makedirs(curr_dir_dataset_train_indices, exist_ok=True)
 
-            n_train_samples = curr_dataset.shape[0] * train_size
+            n_train_samples = round(curr_dataset.shape[0] * train_size)
             indices_bool_template = np.repeat([True, False], [n_train_samples, curr_dataset.shape[0] - n_train_samples])
 
-            with tqdm(total=n_synthetic_datasets, desc=f"Train indices generated({synthesizer_name})",
-                      leave=progress_bar_leave,
+            with tqdm(total=n_synthetic_datasets, desc=f"Train indices generated ({dataset_task})",
+                      leave=False,
                       disable=not progress_bar_each_task) as pbar_each_task:
                 for i in range(n_synthetic_datasets):
-                    curr_train_bool_indices = np.load()
-                    if overwrite_indices or not os.path.exists(curr_train_bool_indices):
-                        curr_train_bool_indices = np.random.shuffle(indices_bool_template)
-                        np.save(os.path.join(curr_dir_dataset_train_indices, f"bool_indices_{i}.npy"),
-                                curr_train_bool_indices)
+                    curr_indices_save_path = os.path.join(curr_dir_dataset_train_indices, f"bool_indices_{i}.npy")
+                    if overwrite_indices or not os.path.exists(curr_indices_save_path):
+                        np.random.shuffle(indices_bool_template)
+                        np.save(curr_indices_save_path,
+                                indices_bool_template)
                         pbar_each_task.update(1)
                     else:
-                        pbar.update(1)
+                        pbar_each_task.update(1)
                         pbar_each_task.refresh()
             pbar_tasks.update(1)
             pbar_tasks.refresh()

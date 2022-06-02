@@ -26,7 +26,7 @@ images_hp_v3 = lambda: os.path.join(images(), "hyperparameter_tuning_v3")
 images_hp_v4 = lambda: os.path.join(images(), "hyperparameter_tuning_v4")
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
-data_comparison = lambda: os.path.join(data(), "comparison")
+data_comparison = lambda: os.path.join(storage(), "datasets_comparison")
 data_comparison_gen = lambda: os.path.join(storage(), "comparison_generated_datasets")
 hyperparams_tuning = lambda: os.path.join(storage(), "hyperparams_tuning")
 hp_tuning_v2 = lambda: os.path.join(storage(), "hyperparams_tuning_v2")

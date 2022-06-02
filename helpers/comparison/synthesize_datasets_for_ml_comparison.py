@@ -2,6 +2,7 @@ import os
 from tqdm.auto import tqdm
 from src import constants as const
 import numpy as np
+import pandas as pd
 
 
 def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
@@ -25,7 +26,7 @@ def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
             os.makedirs(current_gen_dir, exist_ok=True)
 
             with tqdm(total=n_synthetic_datasets, desc=f"Synthesized datasets ({synthesizer_name})",
-                      leave=progress_bar_leave,
+                      leave=False,
                       disable=not progress_bar_each_task) as pbar_each_task:
                 for i in range(n_synthetic_datasets):
                     current_gen_path = os.path.join(current_gen_dir, f"gen{i}.csv")
@@ -37,7 +38,7 @@ def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
                         fake_train.to_csv(current_gen_path, index=False)
                         pbar_each_task.update(1)
                     else:
-                        pbar.update(1)
+                        pbar_each_task.update(1)
                         pbar_each_task.refresh()
             pbar_tasks.update(1)
             pbar_tasks.refresh()
