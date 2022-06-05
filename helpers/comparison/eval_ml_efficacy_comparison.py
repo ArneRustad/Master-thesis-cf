@@ -51,8 +51,9 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
     models = [name_true_train_dataset] + synthesizer_names
     result_datasets = {}
     metric_evals_lower = [metric_eval.lower() for metric_eval in metric_evals]
+    n_models = len(models)
     df_count_nan = pd.DataFrame({**{"Models": models},
-                                 **{dataset: None for dataset in datasets}})
+                                 **{dataset: np.zeros(n_models) for dataset in datasets}})
     if metrics_dict is None:
         if metrics_same_all is not None:
             metrics_dict = {dataset_task: metrics_same_all for dataset_task in datasets}
@@ -110,7 +111,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                             fake_train_unique_classification_values = list(
                                 fake_train_dataset[RESPONSE_DICT[dataset_task]].unique())
 
-                        if unique_classification_values is not None or \
+                        if unique_classification_values is None or \
                                 all([str(class_val) in fake_train_unique_classification_values
                                      for class_val in unique_classification_values]):
                             result_curr_model_and_dataset = fit_and_evaluate_xgboost(
@@ -122,6 +123,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                             )
                         else:
                             result_curr_model_and_dataset = np.nan
+                            df_count_nan.iloc[i, dataset_task] += 1
                     for metric in curr_metrics_lower:
                         dict_arr_results[metric][i, j] = result_curr_model_and_dataset[metric]
 
