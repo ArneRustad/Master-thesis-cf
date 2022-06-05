@@ -63,7 +63,7 @@ def tabgan_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
                 optimizer="adam",
                 opt_lr=0.0002,
                 qtr_spread=1,
-                adam_beta1=, ################
+                adam_beta1=0.05,
                 adam_beta2=0.999,
                 qtr_lbound_apply=0.05,
                 jit_compile=True,

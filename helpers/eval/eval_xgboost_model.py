@@ -100,6 +100,11 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
     if "mae" in metrics:
         metrics_result["mae"] = mean_absolute_error(Y_test, mod.predict(X_test))
         mean_absolute_error
+    if "auprc" in metrics:
+        precision, recall, thresholds = precision_recall_curve(Y_test, mod.predict(X_test))
+        # Use AUC function to calculate the area under the curve of precision recall curve
+        auc_precision_recall = auc(recall, precision)
+        metrics_result["auprc"] = auc_precision_recall
 
     if retcats:
         return metrics_result, oh_encoder.categories_

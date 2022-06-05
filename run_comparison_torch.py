@@ -8,7 +8,7 @@ import os
 import re
 from tqdm.auto import tqdm
 import torch
-from sdv.tabular import CTGAN, TVAE, GaussianCopula
+from sdv.tabular import CTGAN, TVAE, GaussianCopula, CopulaGAN
 import ctgan
 from datetime import datetime
 import subprocess
@@ -16,7 +16,7 @@ import subprocess
 N_EPOCHS = 300
 BATCH_SIZE = 500
 N_CRITICS = 10
-N_SYNTHETIC_DATASETS = 1
+N_SYNTHETIC_DATASETS = 5
 
 RESTART_ALL = False
 RESTART_SPECIFIC = []
@@ -26,7 +26,7 @@ DATASET_TASKS = ["covtype_edited", "creditcard_edited", "news_edited"]
 
 MODELS = ["TVAE", "TVAE-mod", "TVAESynthesizer", "TVAESynthesizer-mod", #count 4
           "CTGAN-pac10", "CTGAN-pac1", "CTGANSynthesizer-pac1", "CTGANSynthesizer-pac10", #count 8
-          "tabFairGAN", "tabFairGAN-mod"]
+          "tabFairGAN", "tabFairGAN-mod", "GaussianCopula", "CopulaGAN"]
 dict_default_arguments = {
     "datasets": DATASET_TASKS,
     "n_synthetic_datasets": N_SYNTHETIC_DATASETS,
@@ -100,6 +100,14 @@ def ctgan_synthesizer(data_train, pac=10, log_frequency=True, orig_implementatio
         data_gen = model.sample(num_rows=data_train.shape[0])
     return data_gen
 
+def CopulaGAN_synthesizer(data_train, log_frequency=True):
+    model = CopulaGAN(epochs=N_EPOCHS, batch_size=BATCH_SIZE, discriminator_steps=N_CRITICS, verbose=0,
+                         cuda=True, embedding_dim=128, generator_dim=(256, 256),
+                         discriminator_dim=(256, 256), log_frequency=log_frequency
+                         )
+    model.fit(data_train)
+    return model.sample(num_rows=data_train.shape[0])
+
 def tabfairgan_synthesizer(data_train, modified=False):
     if modified:
         dim_hidden_layer = 256
@@ -129,6 +137,11 @@ def tabfairgan_synthesizer(data_train, modified=False):
         os.remove(path_data_gen_tabfairgan)
 
     return data_train_gen
+
+def GaussianCopula_synthesizer(data_train):
+    model = GaussianCopula()
+    model.fit(data_train)
+    return model.sample(num_rows=data_train.shape[0])
 
 if "TVAE" in MODELS:
     synthesizer_name = "TVAE"
@@ -228,4 +241,18 @@ if "tabFairGAN-mod" in MODELS:
         **dict_default_arguments
     )
 
+if "GaussianCopula" in MODELS:
+    synthesizer_name = "GaussianCopula"
+    generate_multiple_datasets_for_comparison(synthesizer=GaussianCopula_synthesizer,
+                                              synthesizer_name=synthesizer_name,
+                                              overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+                                              **dict_default_arguments
+                                              )
 
+if "CopulaGAN" in MODELS:
+    synthesizer_name = "CopulaGAN"
+    generate_multiple_datasets_for_comparison(synthesizer=CopulaGAN_synthesizer,
+                                              synthesizer_name=synthesizer_name,
+                                              overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+                                              **dict_default_arguments
+                                              )
