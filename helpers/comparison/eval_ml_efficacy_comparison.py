@@ -13,7 +13,7 @@ RESPONSE_DICT = {
 
 METRIC_DICT = {
     "covtype_edited": ["Accuracy", "F1"],
-    "creditcard_edited": ["Accuracy", "AUC", "F1"],
+    "creditcard_edited": ["Accuracy", "AUPRC", "F1"],
     "news_edited": ["Accuracy", "AUC", "F1"]
 }
 
