@@ -494,7 +494,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
-    adam_beta1_vec = np.round(np.arange(0.05, 1.01, 0.05), 3).tolist() + [0, 0.01, 0.02, 0.03, 0.04, 0.05]
+    adam_beta1_vec = np.round(np.arange(0.05, 1.01, 0.05), 3).tolist() + [0, 0.01, 0.02, 0.03, 0.04]
 
     def create_tabGAN_for_adam_beta1(adam_beta1):
         temp_args_dict = copy.deepcopy(method_args_dict)

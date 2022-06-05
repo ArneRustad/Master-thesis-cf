@@ -4,6 +4,7 @@
 #SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
+#SBATCH --constraint="P100"
 #SBATCH --job-name="comp_torch"
 #SBATCH --out=run_comparison_torch.out
 #SBATCH --error=run_comparison_torch.err
@@ -25,4 +26,4 @@ echo "GPUs allocated for the job: $SLURM_JOB_GPUS"
 module purge
 module load PyTorch/1.7.1-fosscuda-2020b 
 
-python run_comparison_torch $SLURM_ARRAY_TASK_ID
+python run_comparison_torch.py $SLURM_ARRAY_TASK_ID
