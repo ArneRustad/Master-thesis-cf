@@ -14,7 +14,7 @@ def eval_tabular_GAN_ml_efficacy(data_train, data_test, dataset_dir, subfolders,
         models = [name_true_train_dataset] + subfolders
         result = pd.DataFrame({"Dataset" : models,
                                "Test Accuracy": None, "Test AUC" : None,
-                               "Test F1": None,"Test F1_0": None, "Test F1_1": None,
+                               "Test F1": None, "Test F1_0": None, "Test F1_1": None,
                                "SD Accuracy": None, "SD AUC": None, "SD F1": None, "SD F1_0": None, "SD F1_1": None})
         if eval_sd_true_dataset:
             accuracy_vec = np.zeros(n_synthetic_datasets)

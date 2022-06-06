@@ -8,13 +8,15 @@ from src import constants as const
 RESPONSE_DICT = {
     "covtype_edited": "Cover_Type",
     "creditcard_edited": "Class",
-    "news_edited": "shares"
+    "news_edited": "shares",
+    "adult_edited": "income"
 }
 
 METRIC_DICT = {
     "covtype_edited": ["Accuracy", "F1"],
     "creditcard_edited": ["Accuracy", "AUPRC", "F1"],
-    "news_edited": ["Accuracy", "AUC", "F1"]
+    "news_edited": ["Accuracy", "AUC", "F1"],
+    "adult_edited": ["Accuracy", "AUC", "F1"]
 }
 
 
@@ -25,13 +27,15 @@ def transform_news_dataset(news):
 DATA_TRANSFORM_DICT = {
     "covtype_edited": None,
     "creditcard_edited": None,
-    "news_edited": transform_news_dataset
+    "news_edited": transform_news_dataset,
+    "adult_edited": None
 }
 
 DATA_TASK_IS_CLASSIFICATION_DICT = {
     "covtype_edited": True,
     "creditcard_edited": True,
     "news_edited": True
+    "adult_edited": True
 }
 
 
