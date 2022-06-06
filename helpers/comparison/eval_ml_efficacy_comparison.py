@@ -34,7 +34,7 @@ DATA_TRANSFORM_DICT = {
 DATA_TASK_IS_CLASSIFICATION_DICT = {
     "covtype_edited": True,
     "creditcard_edited": True,
-    "news_edited": True
+    "news_edited": True,
     "adult_edited": True
 }
 

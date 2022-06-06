@@ -1,6 +1,6 @@
 from src import constants as const
 from utils import print_header_method
-from helpers.comparison import generate_multiple_datasets_for_comparison
+import helpers.comparison
 
 import pandas as pd
 import numpy as np
@@ -16,7 +16,7 @@ import subprocess
 N_EPOCHS = 300
 BATCH_SIZE = 500
 N_CRITICS = 10
-N_SYNTHETIC_DATASETS = 5 #10 for adult_edited
+N_SYNTHETIC_DATASETS = 10 #10 for adult_edited
 
 RESTART_ALL = False
 RESTART_SPECIFIC = []
@@ -148,7 +148,7 @@ def GaussianCopula_synthesizer(data_train):
 
 if "TVAE" in MODELS:
     synthesizer_name = "TVAE"
-    generate_multiple_datasets_for_comparison(synthesizer=lambda data: tvae_synthesizer(data, modified=False, orig=False),
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=lambda data: tvae_synthesizer(data, modified=False, orig=False),
                                                     synthesizer_name=synthesizer_name,
                                                     overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                                     **dict_default_arguments
@@ -156,7 +156,7 @@ if "TVAE" in MODELS:
 
 if "TVAE-mod" in MODELS:
     synthesizer_name = "TVAE-mod"
-    generate_multiple_datasets_for_comparison(synthesizer=lambda data: tvae_synthesizer(data, modified=True, orig=False),
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=lambda data: tvae_synthesizer(data, modified=True, orig=False),
                                                     synthesizer_name=synthesizer_name,
                                                     overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                                     **dict_default_arguments
@@ -164,7 +164,7 @@ if "TVAE-mod" in MODELS:
 
 if "TVAESynthesizer" in MODELS:
     synthesizer_name = "TVAESynthesizer"
-    generate_multiple_datasets_for_comparison(synthesizer=lambda data: tvae_synthesizer(data, modified=False, orig=True),
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=lambda data: tvae_synthesizer(data, modified=False, orig=True),
                                               synthesizer_name=synthesizer_name,
                                               overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                               **dict_default_arguments
@@ -172,7 +172,7 @@ if "TVAESynthesizer" in MODELS:
 
 if "TVAESynthesizer-mod" in MODELS:
     synthesizer_name = "TVAESynthesizer-mod"
-    generate_multiple_datasets_for_comparison(synthesizer=lambda data: tvae_synthesizer(data, modified=True, orig=True),
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=lambda data: tvae_synthesizer(data, modified=True, orig=True),
                                               synthesizer_name=synthesizer_name,
                                               overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                               **dict_default_arguments
@@ -181,7 +181,7 @@ if "TVAESynthesizer-mod" in MODELS:
 if "CTGAN-pac10" in MODELS:
     synthesizer_name = "CTGAN-pac10"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: ctgan_synthesizer(data, pac=pac, log_frequency=True,
                                                    orig_implementation=False
                                                    ),
@@ -193,7 +193,7 @@ if "CTGAN-pac10" in MODELS:
 if "CTGAN-pac1" in MODELS:
     synthesizer_name = "CTGAN-pac1"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: ctgan_synthesizer(data, pac=pac, log_frequency=True,
                                                    orig_implementation=False
                                                    ),
@@ -205,7 +205,7 @@ if "CTGAN-pac1" in MODELS:
 if "CTGANSynthesizer-pac10" in MODELS:
     synthesizer_name = "CTGANSynthesizer-pac10"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: ctgan_synthesizer(data, pac=pac, log_frequency=True,
                                                    orig_implementation=True
                                                    ),
@@ -217,7 +217,7 @@ if "CTGANSynthesizer-pac10" in MODELS:
 if "CTGANSynthesizer-pac1" in MODELS:
     synthesizer_name = "CTGANSynthesizer-pac1"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: ctgan_synthesizer(data, pac=pac, log_frequency=True,
                                                    orig_implementation=True
                                                    ),
@@ -228,7 +228,7 @@ if "CTGANSynthesizer-pac1" in MODELS:
 
 if "tabFairGAN" in MODELS:
     synthesizer_name = "tabFairGAN"
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabfairgan_synthesizer(data, modified=False),
         synthesizer_name=synthesizer_name,
         overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
@@ -237,7 +237,7 @@ if "tabFairGAN" in MODELS:
 
 if "tabFairGAN-mod" in MODELS:
     synthesizer_name = "tabFairGAN-mod"
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabfairgan_synthesizer(data, modified=True),
         synthesizer_name=synthesizer_name,
         overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
@@ -246,7 +246,7 @@ if "tabFairGAN-mod" in MODELS:
 
 if "GaussianCopula" in MODELS:
     synthesizer_name = "GaussianCopula"
-    generate_multiple_datasets_for_comparison(synthesizer=GaussianCopula_synthesizer,
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=GaussianCopula_synthesizer,
                                               synthesizer_name=synthesizer_name,
                                               overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                               **dict_default_arguments
@@ -254,7 +254,7 @@ if "GaussianCopula" in MODELS:
 
 if "CopulaGAN" in MODELS:
     synthesizer_name = "CopulaGAN"
-    generate_multiple_datasets_for_comparison(synthesizer=CopulaGAN_synthesizer,
+    helpers.comparison.synthesize_multiple_datasets(synthesizer=CopulaGAN_synthesizer,
                                               synthesizer_name=synthesizer_name,
                                               overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
                                               **dict_default_arguments
