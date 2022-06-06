@@ -21,7 +21,7 @@ METRIC_DICT = {
 
 
 def transform_news_dataset(news):
-    return news.assign(shares=lambda x: np.where(x.shares > 3395, "Popular", "Unpopular"))
+    return news.assign(shares=lambda x: np.where(x.shares > 3395, ">3395 (Popular)", "<=3395 (Unpopular)"))
 
 
 DATA_TRANSFORM_DICT = {
@@ -51,7 +51,9 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       metric_evals=["Mean", "Median"],
                                       progress_bar_tasks=True, progress_bar_leave=True,
                                       progress_bar_models=True,
-                                      progress_bar_each_model=True):
+                                      progress_bar_each_model=True,
+                                      ret_count_nan=False,
+                                      allow_fewer_synthetic_datasets=False):
     models = [name_true_train_dataset] + synthesizer_names
     result_datasets = {}
     metric_evals_lower = [metric_eval.lower() for metric_eval in metric_evals]
@@ -71,6 +73,10 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
             curr_metrics = metrics_dict[dataset_task]
             curr_metrics_lower = [curr_metric.lower() for curr_metric in curr_metrics]
 
+            curr_data_transform = DATA_TRANSFORM_DICT[dataset_task]
+            if curr_data_transform is not None:
+                curr_dataset = curr_data_transform(curr_dataset)
+
             result_dataset = pd.DataFrame(
                 {**{"Model": models},
                  **{f"{metric_eval} {metric}": None
@@ -86,15 +92,15 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                     "classification": DATA_TASK_IS_CLASSIFICATION_DICT[dataset_task]}
             if DATA_TASK_IS_CLASSIFICATION_DICT[dataset_task]:
                 unique_classification_values = curr_dataset[RESPONSE_DICT[dataset_task]].unique()
+            else:
+                unique_classification_values = None
+            if allow_fewer_synthetic_datasets:
+                dict_count_n_synthetic_datasets = {model: 0 for model in models}
             for j in tqdm(range(n_synthetic_datasets), desc="Synthetic datasets", leave=False):
                 curr_boolean_train_indices = np.load(os.path.join(curr_dir_dataset_train_indices,
                                                                   f"bool_indices_{j}.npy"))
                 curr_data_train = curr_dataset.loc[curr_boolean_train_indices, :]
                 curr_data_test = curr_dataset.loc[np.logical_not(curr_boolean_train_indices), :]
-                curr_data_transform = DATA_TRANSFORM_DICT[dataset_task]
-                if curr_data_transform is not None:
-                    curr_data_train = curr_data_transform(curr_data_train)
-                    curr_data_test = curr_data_transform(curr_data_test)
 
                 for i, model in enumerate(tqdm(models, desc="Models", leave=False)):
                     if model == name_true_train_dataset:
@@ -105,32 +111,44 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                             retcats=True,
                             **params_extra_xgboost
                         )
+                        if allow_fewer_synthetic_datasets:
+                            dict_count_n_synthetic_datasets[model] += 1
                     else:
-                        fake_train_dataset = pd.read_csv(
-                            os.path.join(gen_dataset_dir, model, dataset_task, f"gen{j}.csv")
-                        )
-                        if curr_data_transform is not None:
-                            fake_train_dataset = curr_data_transform(fake_train_dataset)
-                        if unique_classification_values is not None:
-                            fake_train_unique_classification_values = list(
-                                fake_train_dataset[RESPONSE_DICT[dataset_task]].unique())
-
-                        if unique_classification_values is None or \
-                                all([str(class_val) in fake_train_unique_classification_values
-                                     for class_val in unique_classification_values]):
-                            result_curr_model_and_dataset = fit_and_evaluate_xgboost(
-                                data_train=fake_train_dataset,
-                                data_test=curr_data_test,
-                                categories=curr_cats,
-                                retcats=False,
-                                **params_extra_xgboost
-                            )
+                        curr_dataset_path = os.path.join(gen_dataset_dir, model, dataset_task, f"gen{j}.csv")
+                        if allow_fewer_synthetic_datasets and not os.path.exists(curr_dataset_path):
+                            if j == 0:
+                                raise RuntimeError(f"Model {model} has zero synthetic datasets for dataset task "
+                                                   f"{dataset_task}")
+                            elif j == dict_count_n_synthetic_datasets[model]:
+                                print(f"Model {model} only has {dict_count_n_synthetic_datasets[model]} synthetic "
+                                      f"datasets for dataset task {dataset_task}")
+                                result_curr_model_and_dataset = {metric: np.nan for metric in curr_metrics_lower}
                         else:
-                            result_curr_model_and_dataset = np.nan
-                            df_count_nan.iloc[i, dataset_task] += 1
+                            fake_train_dataset = pd.read_csv(curr_dataset_path)
+                            if curr_data_transform is not None:
+                                fake_train_dataset = curr_data_transform(fake_train_dataset)
+                            if unique_classification_values is not None:
+                                fake_train_unique_classification_values = list(
+                                    fake_train_dataset[RESPONSE_DICT[dataset_task]].unique())
+
+                            if unique_classification_values is None or \
+                                    all([str(class_val) in fake_train_unique_classification_values
+                                         for class_val in unique_classification_values]):
+                                result_curr_model_and_dataset = fit_and_evaluate_xgboost(
+                                    data_train=fake_train_dataset,
+                                    data_test=curr_data_test,
+                                    categories=curr_cats,
+                                    retcats=False,
+                                    **params_extra_xgboost
+                                )
+                                if allow_fewer_synthetic_datasets:
+                                    dict_count_n_synthetic_datasets[model] += 1
+                            else:
+                                result_curr_model_and_dataset = {metric: np.nan for metric in curr_metrics_lower}
+                                df_count_nan.loc[i, dataset_task] += 1
                     for metric in curr_metrics_lower:
                         dict_arr_results[metric][i, j] = result_curr_model_and_dataset[metric]
-
+            print(dict_arr_results)
             for metric, metric_lower in zip(curr_metrics, curr_metrics_lower):
                 for metric_eval, metric_eval_lower in zip(metric_evals, metric_evals_lower):
                     if metric_eval_lower == "mean":
@@ -142,15 +160,23 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                     else:
                         raise ValueError(f"All metric evals must be one of 'mean', 'median' or 'percentile[d]', "
                                          "where [d] is a float between 0 and 100. You entered as metric: {metric}")
-
-                    result_dataset[f"{metric_eval} {metric}"] = metric_eval_func(
-                        dict_arr_results[metric_lower], axis=1
-                    )
+                    if allow_fewer_synthetic_datasets:
+                        for i, model in enumerate(models):
+                            result_dataset.loc[i, f"{metric_eval} {metric}"] = metric_eval_func(
+                                dict_arr_results[metric_lower][i, 0:(dict_count_n_synthetic_datasets[model])],
+                                axis=None
+                            )
+                    else:
+                        result_dataset[f"{metric_eval} {metric}"] = metric_eval_func(
+                            dict_arr_results[metric_lower], axis=1
+                        )
 
             pbar_tasks.update()
             result_datasets[dataset_task] = result_dataset
-
-    return result_datasets
+    if ret_count_nan:
+        result_datasets, df_count_nan
+    else:
+        return result_datasets
 
 
 def tidy_comparison_ml_efficacy_output(dict_result_datasets,

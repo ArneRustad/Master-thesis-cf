@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.metrics import (normalized_mutual_info_score, adjusted_mutual_info_score,
-                             accuracy_score, roc_auc_score, f1_score, mean_squared_error, mean_absolute_error
+                             accuracy_score, roc_auc_score, f1_score, mean_squared_error, mean_absolute_error,
+                             precision_recall_curve, auc
                              )
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, ElasticNetCV
