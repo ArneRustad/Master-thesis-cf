@@ -7,7 +7,7 @@ from sklearn.metrics import (normalized_mutual_info_score, adjusted_mutual_info_
                              )
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, ElasticNetCV
-import tensorflow as tf
+#import tensorflow as tf #Only imported if needed
 
 def extract_numeric_and_discrete_columns(X):
     columns_discrete_bool = [str(b) in ["object", "category"] for b in X.dtypes]
@@ -30,6 +30,7 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
 
     metrics = [metric.lower() for metric in metrics]
     if tree_method is None:
+        import tensorflow as tf
         if len(tf.config.list_physical_devices("gpu")) > 0:
             tree_method = "gpu_hist"
         else:

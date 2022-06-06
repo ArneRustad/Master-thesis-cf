@@ -1,6 +1,6 @@
 from src import constants as const
 from utils import print_header_method
-from generate.synthesize_datasets_for_ml_comparison import generate_multiple_datasets_for_comparison
+import helpers.comparison
 
 import pandas as pd
 import numpy as np
@@ -93,7 +93,7 @@ def tabgan_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
 if "tabGAN" in MODELS:
     synthesizer_name = "tabGAN"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
@@ -107,7 +107,7 @@ if "tabGAN" in MODELS:
 if "tabGAN-qt" in MODELS:
     synthesizer_name = "tabGAN-qt"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
@@ -121,7 +121,7 @@ if "tabGAN-qt" in MODELS:
 if "tabGAN-qtr" in MODELS:
     synthesizer_name = "tabGAN-qtr"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
@@ -135,7 +135,7 @@ if "tabGAN-qtr" in MODELS:
 if "ctabGAN" in MODELS:
     synthesizer_name = "ctabGAN"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
@@ -149,7 +149,7 @@ if "ctabGAN" in MODELS:
 if "ctabGAN-qt" in MODELS:
     synthesizer_name = "ctabGAN-qt"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
@@ -163,7 +163,7 @@ if "ctabGAN-qt" in MODELS:
 if "ctabGAN-qtr" in MODELS:
     synthesizer_name = "ctabGAN-qtr"
     pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    generate_multiple_datasets_for_comparison(
+    helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabGAN_synthesizer(data,
                                                     qt="-qt" in synthesizer_name,
                                                     qtr="-qtr" in synthesizer_name,
