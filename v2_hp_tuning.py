@@ -107,6 +107,8 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         method_args_dict["activation_function"] = "Mish"
         method_args_dict["qtr_spread"] = 1
         method_args_dict["adam_beta1"] = 0.9
+    if version >= 5:
+        method_args_dict["adam_beta1"] = 0.7
 
     hp_info = {}
 
@@ -118,7 +120,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["qtr_spread"] = {
         "vec": np.round(np.linspace(0, 1, 21), 2),
-        "n_synthetic_datasets": 25,
+        "n_synthetic_datasets": 10 if version == 5 else 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_qtr_spread,
         "batch_size": BATCH_SIZE,
@@ -507,6 +509,40 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "n_synthetic_datasets": 10,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_adam_beta1,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
+    noise_discrete_unif_max_vec = np.round(np.arange(0, 0.21, 0.01), 3).tolist() + [0.002, 0.004, 0.006, 0.008]
+
+    def create_tabGAN_for_noise_discrete_unif_max(noise_discrete_unif_max):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["noise_discrete_unif_max"] = noise_discrete_unif_max
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["noise_discrete_unif_max"] = {
+        "vec": noise_discrete_unif_max_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_noise_discrete_unif_max,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": None
+    }
+
+    best_activation_function_vec = ["Mish", "GELU"]
+    def create_tabGAN_for_best_activation_function(activation_function):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["activation_function"] = activation_function
+        temp_args_dict["gelu_approximate"] = False
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["best_activation_function"] = {
+        "vec": best_activation_function_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_best_activation_function,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": None
     }

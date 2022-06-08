@@ -28,4 +28,4 @@ module purge
 module load TensorFlow/2.6.0-foss-2021a-CUDA-11.3.1
 module load tensorflow-probability/0.14.1-foss-2021a-CUDA-11.3.1
 
-python run_v2_hp_tuning_ctabGAN.py
+python run_v2_hp_tuning_ctabGAN.py $SLURM_ARRAY_TASK_ID
