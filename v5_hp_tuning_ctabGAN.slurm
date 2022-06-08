@@ -4,9 +4,9 @@
 #SBATCH --time=7-00:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
-#SBATCH --job-name="v4hpc"
-#SBATCH --out=v4_hp_tuning_ctabGAN.out
-#SBATCH --error=v4_hp_tuning_ctabGAN.err
+#SBATCH --job-name="v5hpc"
+#SBATCH --out=v5_hp_tuning_ctabGAN.out
+#SBATCH --error=v5_hp_tuning_ctabGAN.err
 #SBATCH --mail-user=<arner97@gmail.com>
 #SBATCH --mail-type=ALL
 
@@ -28,4 +28,4 @@ module purge
 module load TensorFlow/2.6.0-foss-2021a-CUDA-11.3.1
 module load tensorflow-probability/0.14.1-foss-2021a-CUDA-11.3.1
 
-python run_v4_hp_tuning_ctabGAN.py $SLURM_ARRAY_TASK_ID
+python run_v5_hp_tuning_ctabGAN.py $SLURM_ARRAY_TASK_ID

@@ -20,31 +20,28 @@ RESTART_SPECIFIC = []
 PROGRESS_BAR_TASK = True
 PROGRESS_BAR_MODEL_FIT = False
 DATASET_TASKS = ["covtype_edited", "creditcard_edited", "news_edited"]
-
 MODELS = ["tabGAN", "tabGAN-qt", "tabGAN-qtr", "ctabGAN", "ctabGAN-qt", "ctabGAN-qtr"]
-dict_default_arguments = {
-    "datasets": DATASET_TASKS,
-    "n_synthetic_datasets": N_SYNTHETIC_DATASETS,
-    "progress_bar_task": PROGRESS_BAR_TASK}
 
 slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')
 if slurm_array_task_id is not None:
     slurm_array_task_id = int(slurm_array_task_id)
-    dataset_id = slurm_array_task_id // 100
+    task_id = (slurm_array_task_id % 1000) // 100
     model_id = slurm_array_task_id % 100
     dataset_id = slurm_array_task_id // 1000
-    if dataset_id > 0:
-        if dataset_id <= len(MODELS):
-            SPECIFIC_DATASET_NUMBER = dataset_id
+    if task_id > 0:
+        if task_id <= len(DATASET_TASKS):
+            DATASET_TASKS = [DATASET_TASKS[task_id - 1]]
+            if DATASET_TASKS[0] == "adult_edited":
+                N_SYNTHETIC_DATASETS = 10
         else:
-            raise ValueError(f"model_id can't be larger than length of MODELS. You entered {model_id}.")
+            raise ValueError(f"task_id can't be larger than length of DATASET_TASKS. You entered {dataset_id}.")
+    if dataset_id > 0:
+        if dataset_id <= N_SYNTHETIC_DATASETS:
+            SPECIFIC_DATASET_NUMBER = dataset_id - 1
+        else:
+            raise ValueError(f"dataset_id can't be larger than N_SYNTHETIC_DATASETS. You entered {dataset_id}.")
     else:
         SPECIFIC_DATASET_NUMBER = None
-    if dataset_id > 0:
-        if dataset_id <= len(DATASET_TASKS):
-            DATASET_TASKS = [DATASET_TASKS[dataset_id - 1]]
-        else:
-            raise ValueError(f"dataset_id can't be larger than length of DATASET_TASKS. You entered {dataset_id}.")
     if model_id > 0:
         if model_id <= len(MODELS):
             MODELS = [MODELS[model_id - 1]]
@@ -52,6 +49,12 @@ if slurm_array_task_id is not None:
             raise ValueError(f"model_id can't be larger than length of MODELS. You entered {model_id}.")
 
     print(f"Starting comparison array task with dataset_id {dataset_id} and model_id {model_id}")
+
+dict_default_arguments = {
+    "datasets": DATASET_TASKS,
+    "n_synthetic_datasets": N_SYNTHETIC_DATASETS,
+    "progress_bar_task": PROGRESS_BAR_TASK}
+
 
 def tabgan_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
     if qtr and not qt:
@@ -63,7 +66,7 @@ def tabgan_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
                 optimizer="adam",
                 opt_lr=0.0002,
                 qtr_spread=1,
-                adam_beta1=0.05,
+                adam_beta1=0.7,
                 adam_beta2=0.999,
                 qtr_lbound_apply=0.05,
                 jit_compile=True,
