@@ -34,7 +34,7 @@ DATA_TRANSFORM_DICT = {
 DATA_TASK_IS_CLASSIFICATION_DICT = {
     "covtype_edited": True,
     "creditcard_edited": True,
-    "news_edited": True
+    "news_edited": True,
     "adult_edited": True
 }
 
@@ -148,7 +148,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                 df_count_nan.loc[i, dataset_task] += 1
                     for metric in curr_metrics_lower:
                         dict_arr_results[metric][i, j] = result_curr_model_and_dataset[metric]
-            print(dict_arr_results)
+
             for metric, metric_lower in zip(curr_metrics, curr_metrics_lower):
                 for metric_eval, metric_eval_lower in zip(metric_evals, metric_evals_lower):
                     if metric_eval_lower == "mean":
@@ -218,8 +218,8 @@ def tidy_comparison_ml_efficacy_output(dict_result_datasets,
                                                               f"Percentile{percentiles[1]}"]
                                           ]
             curr_dataset = curr_dataset[["Model"] + cols_median_and_percentile]
-            curr_dataset.loc[:, cols_median_and_percentile] = curr_dataset.loc[:, cols_median_and_percentile].round(
-                decimals=round_decimals)
+            curr_dataset.loc[:, cols_median_and_percentile] = curr_dataset.loc[:, cols_median_and_percentile].astype(
+                float).round(decimals=round_decimals)
             new_curr_dataset = pd.DataFrame({**{"Model": curr_dataset["Model"]},
                                              **{metric: None for metric in curr_metrics}})
             for metric in curr_metrics:
