@@ -10,7 +10,8 @@ VERSION = 5
 
 
 hp_info = fetch_hp_info(method=METHOD_NAME, version=VERSION)
-hp_name_vec = ["qtr_spread", "adam_beta1", "best_activation_function", "noise_discrete_unif_max"
+hp_name_vec = ["qtr_spread", "adam_beta1", "best_activation_function", "noise_discrete_unif_max",
+               "oh_encoding"
                ]
 hp_name_restart_vec = []
 

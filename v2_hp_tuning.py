@@ -366,6 +366,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["qtr_spread", "qt_distribution", "latent_distribution"]
     }
 
+
     oh_encoding_activation_function_vec = ["softmax", "gumbel"]
 
     def create_tabGAN_for_oh_encoding_activation_function(oh_encoding_activation_function):
@@ -381,6 +382,33 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "tabGAN_func": create_tabGAN_for_oh_encoding_activation_function,
         "batch_size": BATCH_SIZE,
         "hyperparams_subname": None
+    }
+
+    oh_encoding_activation_function_partial_vec = ["softmax", "gumbel"]
+    oh_encoding_temperature_partial_vec = [0.1, 0.5, 1]
+    oh_encoding_vec = [(temperature, activation_function)
+                       for temperature in oh_encoding_temperature_partial_vec
+                       for activation_function in oh_encoding_activation_function_partial_vec]
+
+    def create_tabGAN_for_oh_encoding(temperature, oh_encoding_activation_function):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["oh_encoding_activation_function"] = oh_encoding_activation_function
+        if oh_encoding_activation_function.lower() == "gumbel":
+            temp_args_dict["gumbel_temperature"] = temperature
+        elif oh_encoding_activation_function.lower() == "softmax":
+            temp_args_dict["softmax_temperature"] = temperature
+        else:
+            raise ValueError("Only softmax and gumbel are valid oh_encoding_activation_functions")
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["oh_encoding"] = {
+        "vec": oh_encoding_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_oh_encoding,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["temperature", "activation_function"]
     }
 
     reapply_qtr_continuously_vec = [False, True]
@@ -540,7 +568,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["best_activation_function"] = {
         "vec": best_activation_function_vec,
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_best_activation_function,
         "batch_size": BATCH_SIZE,

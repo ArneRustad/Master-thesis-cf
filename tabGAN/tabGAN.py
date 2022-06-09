@@ -32,7 +32,7 @@ class TabGAN:
                  dim_latent=128, n_critic=5,
                  quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
                  qt_distribution="normal", latent_distribution="normal",
-                 oh_encoding_activation_function="gumbel", gumbel_temperature=0.5,
+                 oh_encoding_activation_function="gumbel", gumbel_temperature=0.5, softmax_temperature=1,
                  n_quantiles_int=1000, qt_n_subsample=int(1e5),
                  quantile_rand_transformation=True, qtr_spread=0.4, qtr_lbound_apply=0.05,
                  qtr_uniform_on_normal_scale=False, qtr_distribution="uniform", qtr_beta_distribution_parameter=1,
@@ -71,8 +71,7 @@ class TabGAN:
             activation_function_generator = activation_function
         activation_function_generator = activation_function_generator.lower()
 
-        if "mish" in [activation_function_critic, activation_function_generator] or \
-                (oh_encoding_activation_function is not None and oh_encoding_activation_function.lower() == "mish"):
+        if "mish" in [activation_function_critic, activation_function_generator]:
             from tensorflow_addons.activations import mish
         else:
             mish = None
@@ -205,6 +204,7 @@ class TabGAN:
         self.dim_hidden_generator = dim_hidden_generator
         self.dim_hidden_critic = dim_hidden_critic
         self.gumbel_temperature = gumbel_temperature
+        self.softmax_temperature = softmax_temperature
         self.optimizer = optimizer
         self.n_critic = n_critic
         self.opt_lr = opt_lr
@@ -341,6 +341,10 @@ class TabGAN:
 
         # Create Gumbel-activation function
         tf.keras.utils.get_custom_objects().update({'gumbel_softmax': Activation(self.gumbel_softmax)})
+
+        # Create softmax with temperature activation function
+        tf.keras.utils.get_custom_objects().update({'softmax_with_temperature':
+                                                        Activation(self.softmax_with_temperature)})
 
         # To accomodate for that jit_compile was referred to as experimental compile in tensorflow versions before 2.5
         if tf.__version__ < "2.5":
@@ -811,7 +815,7 @@ class TabGAN:
                         Activation("gumbel_softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
                 elif self.oh_encoding_activation_function == "softmax":
                     output_discrete_sep.append(
-                        Activation("softmax", name="Gumbel_softmax%d" % (i + 1))(output_discrete_i))
+                        Activation("softmax_with_temperature", name="Softmax%d" % (i + 1))(output_discrete_i))
                 else:
                     raise ValueError("oh_encoding_activation_function must be either gumbel or softmax")
 
@@ -851,6 +855,12 @@ class TabGAN:
         Internal function for used in creating of gumbel softmax layers
         """
         return tfd.RelaxedOneHotCategorical(temperature=self.gumbel_temperature, logits=logits).sample()
+
+    def softmax_with_temperature(self, logits):
+        """
+        Internal function for used in creating of softmax layers with temperature
+        """
+        return tf.nn.softmax(logits / self.softmax_temperature)
 
     def train_step_func(self, n_batch, ret_loss=False):
         """

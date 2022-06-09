@@ -12,7 +12,9 @@ def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
                                               gen_dataset_dir=const.dir.data_comparison_gen(),
                                               overwrite_dataset=False,
                                               progress_bar_task=True,
-                                              progress_bar_each_task=True, progress_bar_leave=True):
+                                              progress_bar_each_task=True, progress_bar_leave=True,
+                                              _specific_dataset_number=None
+                                              ):
     dir_dataset_gen_model = os.path.join(gen_dataset_dir, synthesizer_name)
     os.makedirs(dir_dataset_gen_model, exist_ok=True)
     with tqdm(total=len(datasets), desc=f"Dataset tasks", leave=progress_bar_leave, disable=not progress_bar_task) \
@@ -28,7 +30,13 @@ def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
             with tqdm(total=n_synthetic_datasets, desc=f"Synthesized datasets ({synthesizer_name})",
                       leave=False,
                       disable=not progress_bar_each_task) as pbar_each_task:
-                for i in range(n_synthetic_datasets):
+                if _specific_dataset_number is None:
+                    range_synthetic_datasets = range(n_synthetic_datasets)
+                else:
+                    range_synthetic_datasets = [_specific_dataset_number]
+                    print(f"Generating only synthetic dataset {_specific_dataset_number} for model {synthesizer_name} "
+                          f"and dataset task {dataset_task}")
+                for i in range_synthetic_datasets:
                     current_gen_path = os.path.join(current_gen_dir, f"gen{i}.csv")
                     if overwrite_dataset or not os.path.exists(current_gen_path):
                         curr_train_bool_indices = np.load(os.path.join(curr_dir_dataset_train_indices,
