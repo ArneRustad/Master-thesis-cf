@@ -1,11 +1,11 @@
-run_v5_hp_tuning_ctabGAN.pyfrom v2_hp_tuning import fetch_hp_info
+run_v6_hp_tuning_ctabGAN.pyfrom v2_hp_tuning import fetch_hp_info
 from src import constants as const
 import helpers
 import os
 
 PROGRESS_BAR_SUBSUBPROCESS = False
 METHOD_NAME = "ctabGAN-qtr"
-VERSION = 5
+VERSION = 6
 
 
 hp_info = fetch_hp_info(method=METHOD_NAME, version=VERSION)
@@ -28,7 +28,7 @@ for hp_name in hp_name_vec:
         create_tabGAN_func=curr_hp_info["tabGAN_func"],
         hyperparams_vec=curr_hp_info["vec"],
         n_epochs=curr_hp_info["n_epochs"],
-        dataset_dir=const.dir.hp_tuning_v5(),
+        dataset_dir=const.dir.hp_tuning_v6(),
         batch_size=curr_hp_info["batch_size"],
         subfolder=METHOD_NAME,
         n_synthetic_datasets=curr_hp_info["n_synthetic_datasets"],

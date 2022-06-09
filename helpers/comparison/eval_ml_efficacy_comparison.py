@@ -53,7 +53,9 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       progress_bar_models=True,
                                       progress_bar_each_model=True,
                                       ret_count_nan=False,
-                                      allow_fewer_synthetic_datasets=False):
+                                      allow_fewer_synthetic_datasets=False,
+                                      print_csv_path=False,
+                                      print_csv_path_if_fail=True,):
     models = [name_true_train_dataset] + synthesizer_names
     result_datasets = {}
     metric_evals_lower = [metric_eval.lower() for metric_eval in metric_evals]
@@ -124,7 +126,13 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       f"datasets for dataset task {dataset_task}")
                                 result_curr_model_and_dataset = {metric: np.nan for metric in curr_metrics_lower}
                         else:
-                            fake_train_dataset = pd.read_csv(curr_dataset_path)
+                            if print_csv_path_if_fail:
+                                try:
+                                    fake_train_dataset = pd.read_csv(curr_dataset_path)
+                                except:
+                                    print(curr_dataset_path)
+                                    raise
+
                             if curr_data_transform is not None:
                                 fake_train_dataset = curr_data_transform(fake_train_dataset)
                             if unique_classification_values is not None:

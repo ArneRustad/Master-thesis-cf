@@ -109,6 +109,9 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         method_args_dict["adam_beta1"] = 0.9
     if version >= 5:
         method_args_dict["adam_beta1"] = 0.7
+    if version >= 6:
+        method_args_dict["activation_function"] = "GELU"
+        method_args_dict["gelu_approximate"] = False
 
     hp_info = {}
 
@@ -120,7 +123,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["qtr_spread"] = {
         "vec": np.round(np.linspace(0, 1, 21), 2),
-        "n_synthetic_datasets": 10 if version == 5 else 25,
+        "n_synthetic_datasets": 10 if version == 6 else 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_qtr_spread,
         "batch_size": BATCH_SIZE,
@@ -385,7 +388,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     }
 
     oh_encoding_activation_function_partial_vec = ["softmax", "gumbel"]
-    oh_encoding_temperature_partial_vec = [0.1, 0.5, 1]
+    oh_encoding_temperature_partial_vec = np.round(np.arange(0.1, 1.01, 0.1),3).tolist()
     oh_encoding_vec = [(temperature, activation_function)
                        for temperature in oh_encoding_temperature_partial_vec
                        for activation_function in oh_encoding_activation_function_partial_vec]

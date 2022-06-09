@@ -39,6 +39,8 @@ if slurm_array_task_id is not None:
             DATASET_TASKS = [DATASET_TASKS[task_id - 1]]
             if DATASET_TASKS[0] == "adult_edited":
                 N_SYNTHETIC_DATASETS = 25
+            if DATASET_TASKS[0] == "news_edited":
+                N_SYNTHETIC_DATASETS = 25
         else:
             raise ValueError(f"task_id can't be larger than length of DATASET_TASKS. You entered {dataset_id}.")
     if dataset_id > 0:

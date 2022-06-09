@@ -13,7 +13,7 @@ def generate_multiple_datasets_for_comparison(synthesizer, synthesizer_name,
                                               overwrite_dataset=False,
                                               progress_bar_task=True,
                                               progress_bar_each_task=True, progress_bar_leave=True,
-                                              _specific_dataset_number=None
+                                              _specific_dataset_number=None,
                                               ):
     dir_dataset_gen_model = os.path.join(gen_dataset_dir, synthesizer_name)
     os.makedirs(dir_dataset_gen_model, exist_ok=True)
