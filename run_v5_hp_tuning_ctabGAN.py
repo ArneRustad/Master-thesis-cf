@@ -1,4 +1,4 @@
-run_v5_hp_tuning_ctabGAN.pyfrom v2_hp_tuning import fetch_hp_info
+from v2_hp_tuning import fetch_hp_info
 from src import constants as const
 import helpers
 import os
@@ -10,7 +10,7 @@ VERSION = 5
 
 hp_info = fetch_hp_info(method=METHOD_NAME, version=VERSION)
 hp_name_vec = ["qtr_spread", "adam_beta1", "best_activation_function", "noise_discrete_unif_max",
-               "oh_encoding"
+               "oh_encoding", "wgan_penalty_query", "BN"
                ]
 hp_name_restart_vec = []
 

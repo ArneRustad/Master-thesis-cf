@@ -578,5 +578,24 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": None
     }
 
+    bn_vec = [(False, False), (True, False), (True, True)]
+    def create_tabGAN_for_bn(batch_normalization_generator,
+                                                   concatenate_with_previous_layer_if_batch_normalization):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["batch_normalization_generator"] = batch_normalization_generator
+        temp_args_dict["concatenate_with_previous_layer_if_batch_normalization"] = concatenate_with_previous_layer_if_batch_normalization
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["BN"] = {
+        "vec": bn_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_bn,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["batch_normalization_generator", "concatenate_with_previous_layer"]
+    }
+
+
     return hp_info
 

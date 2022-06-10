@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
-                                     ELU, Embedding, Activation, Dropout)
+                                     ELU, Embedding, Activation, Dropout, BatchNormalization)
 from tensorflow.keras.activations import gelu, selu, swish, relu
 #from tensorflow_addons.activations import mish # module tensorflow_addons only loaded if needed
 import tensorflow_probability as tfp
@@ -49,6 +49,8 @@ class TabGAN:
                  dropout_rate=0, dropout_rate_critic=None, dropout_rate_generator=None,
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
                  add_connection_activation_function=None,
+                 batch_normalization_generator=False,
+                 concatenate_with_previous_layer_if_batch_normalization=False,
                  dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
                  add_connection_query_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
@@ -258,6 +260,8 @@ class TabGAN:
         self.add_connection_num_to_discrete = add_connection_num_to_discrete
         self.add_connection_activation_function = add_connection_activation_function
         self.add_connection_query_to_discrete = add_connection_query_to_discrete
+        self.batch_normalization_generator = batch_normalization_generator
+        self.concatenate_with_previous_layer_if_batch_normalization = concatenate_with_previous_layer_if_batch_normalization
         self.dim_hidden_layer_discrete_to_num = dim_hidden_layer_discrete_to_num
         self.dim_hidden_layer_num_to_discrete = dim_hidden_layer_num_to_discrete
         self.use_query = use_query
@@ -779,8 +783,14 @@ class TabGAN:
         if 0 in self.add_dropout_generator:
             hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_generator_layers):
+            if self.batch_normalization_generator and self.concatenate_with_previous_layer_if_batch_normalization:
+                prev_hidden = hidden
             hidden = Dense(self.dim_hidden_generator[i], activation=self.activation_function_generator,
                            name=f"hidden{i+1}")(hidden)
+            if self.batch_normalization_generator:
+                hidden = BatchNormalization()(hidden)
+                if self.concatenate_with_previous_layer_if_batch_normalization:
+                    hidden = concatenate([prev_hidden, hidden], name=f"Concatenate_hidden{i}_and_BN_hidden{i+1}")
             if (i+1) in self.add_dropout_generator:
                 hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)
 
