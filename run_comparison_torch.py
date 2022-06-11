@@ -16,7 +16,7 @@ import subprocess
 N_EPOCHS = 300
 BATCH_SIZE = 500
 N_CRITICS = 10
-N_SYNTHETIC_DATASETS = 10 #10 for adult_edited
+N_SYNTHETIC_DATASETS = 15 #10 for adult_edited
 
 RESTART_ALL = False
 RESTART_SPECIFIC = []

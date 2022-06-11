@@ -26,6 +26,8 @@ images_hp_v3 = lambda: os.path.join(images(), "hyperparameter_tuning_v3")
 images_hp_v4 = lambda: os.path.join(images(), "hyperparameter_tuning_v4")
 images_hp_v5 = lambda: os.path.join(images(), "hyperparameter_tuning_v5")
 images_hp_v6 = lambda: os.path.join(images(), "hyperparameter_tuning_v6")
+images_hp_v7 = lambda: os.path.join(images(), "hyperparameter_tuning_v7")
+images_hp_v8 = lambda: os.path.join(images(), "hyperparameter_tuning_v8")
 
 data_gen = lambda: os.path.join(storage(), "generated_datasets")
 data_comparison = lambda: os.path.join(storage(), "datasets_comparison")
@@ -36,6 +38,8 @@ hp_tuning_v3 = lambda: os.path.join(storage(), "hyperparams_tuning_v3")
 hp_tuning_v4 = lambda: os.path.join(storage(), "hyperparams_tuning_v4")
 hp_tuning_v5 = lambda: os.path.join(storage(), "hyperparams_tuning_v5")
 hp_tuning_v6 = lambda: os.path.join(storage(), "hyperparams_tuning_v6")
+hp_tuning_v7 = lambda: os.path.join(storage(), "hyperparams_tuning_v7")
+hp_tuning_v8 = lambda: os.path.join(storage(), "hyperparams_tuning_v8")
 
 timers = lambda: os.path.join(storage(), "timers")
 models = lambda: os.path.join(storage(), "models")
@@ -47,5 +51,5 @@ n_epochs_comparison = lambda: os.path.join(storage(), "n_epochs_comparison")
 for dir in [data, images, images_hp, images_hp_v2, data_gen, hyperparams_tuning, hp_tuning_v2, timers, models,
             py_objects, cf, data_temp, n_epochs_comparison, hp_tuning_v3, images_hp_v3,
             hp_tuning_v4, images_hp_v4, data_comparison, data_comparison_gen, hp_tuning_v5, images_hp_v5,
-            hp_tuning_v6, images_hp_v6]:
+            hp_tuning_v6, images_hp_v6, hp_tuning_v7, images_hp_v7, hp_tuning_v8, images_hp_v8]:
     os.makedirs(dir(), exist_ok=True)

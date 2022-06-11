@@ -112,6 +112,12 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     if version >= 6:
         method_args_dict["activation_function"] = "GELU"
         method_args_dict["gelu_approximate"] = False
+    if version >= 7:
+        method_args_dict["batch_normalization_generator"] = True
+        method_args_dict["activation_function"] = "Mish"
+    if version >= 8:
+        method_args_dict["activation_function"] = "GELU"
+        method_args_dict["gelu_approximate"] = False
 
     hp_info = {}
 
@@ -123,7 +129,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["qtr_spread"] = {
         "vec": np.round(np.linspace(0, 1, 21), 2),
-        "n_synthetic_datasets": 10 if version == 6 else 25,
+        "n_synthetic_datasets": 10 if version >= 6 else 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_qtr_spread,
         "batch_size": BATCH_SIZE,
@@ -589,7 +595,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["BN"] = {
         "vec": bn_vec,
-        "n_synthetic_datasets": 10,
+        "n_synthetic_datasets": 25 if version >= 7 else 10,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_bn,
         "batch_size": BATCH_SIZE,
