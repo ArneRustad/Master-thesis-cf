@@ -50,7 +50,8 @@ class TabGAN:
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
                  add_connection_activation_function=None,
                  batch_normalization_generator=False,
-                 concatenate_with_previous_layer_if_batch_normalization=False,
+                 generator_concatenate_hidden_with_previous_layer=False,
+                 batch_normalization_before_activation=True,
                  dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
                  add_connection_query_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
@@ -160,7 +161,7 @@ class TabGAN:
             tf_make_em_distance_graph = tf_make_graph
         if tf_make_generate_latent_graph is None:
             tf_make_generate_latent_graph = tf_make_graph
-        
+
         if jit_compile_critic_step is None:
             jit_compile_critic_step = jit_compile
         if jit_compile_gen_step is None:
@@ -261,7 +262,8 @@ class TabGAN:
         self.add_connection_activation_function = add_connection_activation_function
         self.add_connection_query_to_discrete = add_connection_query_to_discrete
         self.batch_normalization_generator = batch_normalization_generator
-        self.concatenate_with_previous_layer_if_batch_normalization = concatenate_with_previous_layer_if_batch_normalization
+        self.generator_concatenate_hidden_with_previous_layer = generator_concatenate_hidden_with_previous_layer
+        self.batch_normalization_before_activation = batch_normalization_before_activation
         self.dim_hidden_layer_discrete_to_num = dim_hidden_layer_discrete_to_num
         self.dim_hidden_layer_num_to_discrete = dim_hidden_layer_num_to_discrete
         self.use_query = use_query
@@ -461,7 +463,7 @@ class TabGAN:
         else:
             raise ValueError("Optimizer name not recognized. Currently only implemented optimizers: adam, sgd and rmsprop")
         self.start_epoch = 0
-        
+
         if self.tf_make_generate_latent_graph and not (self.tf_make_graph and self.jit_compile_generate_latent):
             self.generate_latent = tf.function(self.generate_latent_func, **self.jit_compile_arg_func(self.jit_compile_generate_latent))
         else:
@@ -783,14 +785,21 @@ class TabGAN:
         if 0 in self.add_dropout_generator:
             hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_generator_layers):
-            if self.batch_normalization_generator and self.concatenate_with_previous_layer_if_batch_normalization:
+            if self.generator_concatenate_hidden_with_previous_layer:
                 prev_hidden = hidden
-            hidden = Dense(self.dim_hidden_generator[i], activation=self.activation_function_generator,
-                           name=f"hidden{i+1}")(hidden)
             if self.batch_normalization_generator:
-                hidden = BatchNormalization()(hidden)
-                if self.concatenate_with_previous_layer_if_batch_normalization:
-                    hidden = concatenate([prev_hidden, hidden], name=f"Concatenate_hidden{i}_and_BN_hidden{i+1}")
+                if self.batch_normalization_before_activation:
+                    curr_activation_function_generator = lambda x: self.activation_function_generator(
+                        BatchNormalization()(x))
+                else:
+                    curr_activation_function_generator = lambda x: BatchNormalization()(
+                        self.activation_function_generator(x))
+            else:
+                curr_activation_function_generator = self.activation_function_generator
+            hidden = Dense(self.dim_hidden_generator[i], activation=curr_activation_function_generator,
+                           name=f"hidden{i+1}")(hidden)
+            if self.generator_concatenate_hidden_with_previous_layer:
+                hidden = concatenate([prev_hidden, hidden], name=f"Concatenate_hidden{i}_and_hidden{i+1}")
             if (i+1) in self.add_dropout_generator:
                 hidden = Dropout(rate=self.dropout_rate_generator, name=f"Dropout{i+1}")(hidden)
 

@@ -27,7 +27,8 @@ parser.add_argument("fake_name", help="name of the produced csv file", type=str)
 parser.add_argument("--critic_repeat", help="Number of critic updates for each generator update (added by Arne for easier comparison with other models in his project thesis", type=int, required=False, default=4)
 parser.add_argument("--dim_latent_layer", help="Number of nodes in the latent noise layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
 parser.add_argument("--dim_hidden_layer", help="Number of nodes in the hidden layer (added by Arne for easier comparison with the other models in his project thesis", type=int, required=False, default=-1)
-parser.add_argument("--extra_hidden_layer_generator", help="Adds an extra hidden layer to the generator (added by Arne for easier comparison with the other models in his project thesis", type=bool, required=False, default=False)
+parser.add_argument("--extra_hidden_layer_generator", help="Adds an extra hidden layer to the generator (added by Arne for easier comparison with the other models in his project thesis",
+                    type=bool, required=False, default=False)
 parser.add_argument("--progress_bar", help="Boolean for whether to include a progress bar of training (added by Arne)",
                     type=bool, required=False, default=True)
 args = parser.parse_args()

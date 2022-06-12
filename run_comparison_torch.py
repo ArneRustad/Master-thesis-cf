@@ -119,9 +119,11 @@ def tabfairgan_synthesizer(data_train, modified=False):
     if modified:
         dim_hidden_layer = 256
         dim_latent_layer = 128
+        extra_hidden_layer_generator = True
     else:
         dim_hidden_layer = -1 # same as setting equal to input dim
         dim_latent_layer = -1 # same as setting equal to input dim
+        extra_hidden_layer_generator = False
 
     path_data_train_tabfairgan = os.path.join(const.dir.data_temp(),
                                               f"df_tabFairGAN_temp_{datetime.now().strftime('%H_%M_%S')}.csv")
@@ -134,6 +136,7 @@ def tabfairgan_synthesizer(data_train, modified=False):
         f"python {os.path.join('src', 'TabFairGAN_nofair.py')} {path_data_train_tabfairgan} {N_EPOCHS}"
         f" {BATCH_SIZE} {path_data_gen_tabfairgan} --critic_repeat={N_CRITICS}"
         f" --dim_latent_layer={dim_latent_layer} --dim_hidden_layer={dim_hidden_layer}"
+        f" --extra_hidden_layer_generator={extra_hidden_layer_generator}"
         f" --size_of_fake_data={data_train.shape[0]} --progress_bar={PROGRESS_BAR_MODEL_FIT}".split()
     )
     data_train_gen = pd.read_csv(path_data_gen_tabfairgan, index_col=0)
