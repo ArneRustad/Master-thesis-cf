@@ -51,7 +51,7 @@ class TabGAN:
                  add_connection_activation_function=None,
                  batch_normalization_generator=False,
                  generator_concatenate_hidden_with_previous_layer=False,
-                 batch_normalization_before_activation=True,
+                 batch_normalization_before_activation=False,
                  dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
                  add_connection_query_to_discrete=False,
                  optimizer="adam", opt_lr=0.0002, adam_beta1=0, adam_beta2=0.999, sgd_momentum=0.0,
@@ -787,17 +787,14 @@ class TabGAN:
         for i in range(self.n_hidden_generator_layers):
             if self.generator_concatenate_hidden_with_previous_layer:
                 prev_hidden = hidden
-            if self.batch_normalization_generator:
-                if self.batch_normalization_before_activation:
-                    curr_activation_function_generator = lambda x: self.activation_function_generator(
-                        BatchNormalization()(x))
-                else:
-                    curr_activation_function_generator = lambda x: BatchNormalization()(
-                        self.activation_function_generator(x))
-            else:
-                curr_activation_function_generator = self.activation_function_generator
-            hidden = Dense(self.dim_hidden_generator[i], activation=curr_activation_function_generator,
-                           name=f"hidden{i+1}")(hidden)
+
+            hidden = Dense(self.dim_hidden_generator[i], name=f"hidden{i+1}")(hidden)
+
+            if self.batch_normalization_generator and self.batch_normalization_before_activation:
+                hidden = BatchNormalization(name=f"BN{i+1}")(hidden)
+            hidden = Activation(self.activation_function_generator)(hidden)
+            if self.batch_normalization_generator and not self.batch_normalization_before_activation:
+                hidden = BatchNormalization(name=f"BN{i+1}")(hidden)
             if self.generator_concatenate_hidden_with_previous_layer:
                 hidden = concatenate([prev_hidden, hidden], name=f"Concatenate_hidden{i}_and_hidden{i+1}")
             if (i+1) in self.add_dropout_generator:
