@@ -17,7 +17,7 @@ def extract_numeric_and_discrete_columns(X):
 
 def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats = False, response_col = "income",
                              tree_method=None, metrics=["accuracy", "auc", "f1"], classification=None,
-                             model_type="xgboost", model_params={},
+                             model_type="xgboost", model_params={}, determine_cats_from_both_train_and_test=False,
                              data_transform=None):
     if data_transform is not None:
         data_train = data_transform(data_train)
@@ -52,7 +52,10 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
         Y_test = label_encoder.transform(Y_test)
 
     oh_encoder = OneHotEncoder(categories=categories, sparse=False)
-    oh_encoder.fit(X_train[discrete_columns_of_X])
+    if determine_cats_from_both_train_and_test:
+        oh_encoder.fit(X_train[discrete_columns_of_X].append(X_test[discrete_columns_of_X], ignore_index=True))
+    else:
+        oh_encoder.fit(X_train[discrete_columns_of_X])
     X_train = np.concatenate((X_train[numeric_columns_of_X].to_numpy(),
                               oh_encoder.fit_transform(X_train[discrete_columns_of_X])),
                              axis=1)
