@@ -164,7 +164,7 @@ class Critic(nn.Module):
         else:
             dim_hidden_layer = args.dim_hidden_layer
         self.dense1 = nn.Linear(self._input_dim, dim_hidden_layer)
-        self.dense2 = nn.Linear(dim_hidden_layer, self._input_dim)
+        self.dense2 = nn.Linear(dim_hidden_layer, dim_hidden_layer)
         # self.dense3 = nn.Linear(256, 1)
         # self.drop = nn.Dropout(p=0.2)
         # self.activation = nn.Sigmoid()

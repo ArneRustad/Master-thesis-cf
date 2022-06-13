@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, LeakyReLU, ReLU,
-                                     ELU, Embedding, Activation, Dropout, BatchNormalization)
+                                     ELU, Embedding, Activation, Dropout, BatchNormalization, LayerNormalization)
 from tensorflow.keras.activations import gelu, selu, swish, relu
 #from tensorflow_addons.activations import mish # module tensorflow_addons only loaded if needed
 import tensorflow_probability as tfp
@@ -50,6 +50,9 @@ class TabGAN:
                  add_connection_discrete_to_num=False, add_connection_num_to_discrete=False,
                  add_connection_activation_function=None,
                  batch_normalization_generator=False,
+                 layer_normalization_critic=False,
+                 layer_normalization_simple_type=False,
+                 layer_normalization_before_activation=False,
                  generator_concatenate_hidden_with_previous_layer=False,
                  batch_normalization_before_activation=False,
                  dim_hidden_layer_discrete_to_num=0, dim_hidden_layer_num_to_discrete=0,
@@ -264,6 +267,9 @@ class TabGAN:
         self.batch_normalization_generator = batch_normalization_generator
         self.generator_concatenate_hidden_with_previous_layer = generator_concatenate_hidden_with_previous_layer
         self.batch_normalization_before_activation = batch_normalization_before_activation
+        self.layer_normalization_critic = layer_normalization_critic
+        self.layer_normalization_simple_type = layer_normalization_simple_type
+        self.layer_normalization_before_activation = layer_normalization_before_activation
         self.dim_hidden_layer_discrete_to_num = dim_hidden_layer_discrete_to_num
         self.dim_hidden_layer_num_to_discrete = dim_hidden_layer_num_to_discrete
         self.use_query = use_query
@@ -756,10 +762,18 @@ class TabGAN:
         if 0 in self.add_dropout_critic:
             hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout0")(hidden)
         for i in range(self.n_hidden_critic_layers):
-            hidden = Dense(self.dim_hidden_critic[i], activation=self.activation_function_critic,
-                           name=f"hidden{i+1}")(hidden)
+            hidden = Dense(self.dim_hidden_critic[i], name=f"hidden{i+1}")(hidden)
+            if self.layer_normalization_critic and self.layer_normalization_before_activation:
+                hidden = LayerNormalization(center=not self.layer_normalization_simple_type,
+                                            scale=not self.layer_normalization_simple_type,
+                                            name=f"LN{i+1}")(hidden)
+            hidden = Activation(self.activation_function_critic)(hidden)
             if (i+1) in self.add_dropout_critic:
                 hidden = Dropout(rate=self.dropout_rate_critic, name=f"Dropout{i+1}")(hidden)
+            if self.layer_normalization_critic and not self.layer_normalization_before_activation:
+                hidden = LayerNormalization(center=not self.layer_normalization_simple_type,
+                                            scale=not self.layer_normalization_simple_type,
+                                            name=f"LN{i+1}")(hidden)
         output = Dense(1, name="output_critic")(hidden)
         model = Model(inputs=inputs, outputs=output)
         return model
