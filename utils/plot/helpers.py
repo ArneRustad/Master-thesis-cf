@@ -1,3 +1,5 @@
+import matplotlib
+
 def _map_str_to_color(vec, color_map = "viridis"):
     cmap = matplotlib.cm.get_cmap(color_map)
     vec_set = set(vec)
