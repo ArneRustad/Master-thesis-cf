@@ -625,5 +625,62 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
     }
 
 
+    ln_advanced_vec = [(False, "None")]
+    ln_advanced_vec += [(ln_before_activation, ln_type)
+                        for ln_type in ["Standard", "Simple"]
+                        for ln_before_activation in [False, True]]
+    def create_tabGAN_for_ln_advanced(ln_before_activation, ln_type):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["layer_normalization_before_activation"] = ln_before_activation
+
+        if ln_type.lower() == "none":
+            temp_args_dict["layer_normalization_critic"] = False
+            print("yay")
+        elif ln_type.lower() in ["standard", "simple"]:
+            temp_args_dict["layer_normalization_critic"] = True
+        else:
+            raise ValueError(f"Wrong input to ln_type: {ln_type}")
+
+        if ln_type.lower() == "simple":
+            print("Simple layer type! Yey")
+            temp_args_dict["layer_normalization_simple_type"] = True
+        elif ln_type.lower() in ["standard", "none"]:
+            temp_args_dict["layer_normalization_simple_type"] = False
+        else:
+            raise ValueError(f"Wrong input to ln_type: {ln_type}")
+
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["LN_advanced"] = {
+        "vec": ln_advanced_vec,
+        "n_synthetic_datasets": 15,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_ln_advanced,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["LN_before_activation", "LayerNormalization"]
+    }
+
+    critic_dropout_vec = [(0, [])]
+    critic_dropout_vec += [(rate, layers)
+                           for rate in [0.25, 0.5]
+                           for layers in [[1], [2], [1, 2]]
+                           ]
+    def create_tabGAN_for_critic_dropout(dropout_rate, dropout_layers):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["add_dropout_critic"] = dropout_layers
+        temp_args_dict["dropout_rate_critic"] = dropout_rate
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["critic_dropout"] = {
+        "vec": critic_dropout_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_critic_dropout,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["rate", "layers"]
+    }
+
     return hp_info
 
