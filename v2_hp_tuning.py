@@ -624,6 +624,5 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["concatenate_with_previous_layer", "batch_normalization", "BN_before_activation"]
     }
 
-
     return hp_info
 
