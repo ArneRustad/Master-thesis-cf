@@ -653,7 +653,7 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
 
     hp_info["LN_advanced"] = {
         "vec": ln_advanced_vec,
-        "n_synthetic_datasets": 15,
+        "n_synthetic_datasets": 25,
         "n_epochs": N_EPOCHS,
         "tabGAN_func": create_tabGAN_for_ln_advanced,
         "batch_size": BATCH_SIZE,

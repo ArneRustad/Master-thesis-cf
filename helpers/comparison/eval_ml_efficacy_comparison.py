@@ -42,6 +42,7 @@ DATA_TASK_IS_CLASSIFICATION_DICT = {
 def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       datasets=["covtype_edited", "creditcard_edited", "news_edited"],
                                       n_synthetic_datasets=5,
+                                      n_synthetic_datasets_dict={},
                                       name_true_train_dataset="Train dataset",
                                       dataset_dir=const.dir.data_comparison(),
                                       gen_dataset_dir=const.dir.data_comparison_gen(),
@@ -49,6 +50,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       metrics_dict=None,
                                       metrics_same_all=None,
                                       metric_evals=["Mean", "Median"],
+                                      ignore_nan=False,
                                       progress_bar_tasks=True, progress_bar_leave=True,
                                       progress_bar_models=True,
                                       progress_bar_each_model=True,
@@ -57,6 +59,9 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                                       print_csv_path=False,
                                       print_csv_path_if_fail=True,):
     models = [name_true_train_dataset] + synthesizer_names
+    for dataset_task in datasets:
+        if dataset_task not in n_synthetic_datasets_dict.keys():
+            n_synthetic_datasets_dict[dataset_task] = n_synthetic_datasets
     result_datasets = {}
     metric_evals_lower = [metric_eval.lower() for metric_eval in metric_evals]
     n_models = len(models)
@@ -86,7 +91,8 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                     for metric_eval in metric_evals}
                  }
             )
-            dict_arr_results = {metric: np.empty(shape=(len(models), n_synthetic_datasets), dtype=np.float64)
+            dict_arr_results = {metric: np.empty(shape=(len(models), n_synthetic_datasets_dict[dataset_task]),
+                                                 dtype=np.float64)
                                 for metric in curr_metrics_lower}
             params_extra_xgboost = {"response_col": RESPONSE_DICT[dataset_task],
                                     "metrics": curr_metrics,
@@ -98,7 +104,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                 unique_classification_values = None
             if allow_fewer_synthetic_datasets:
                 dict_count_n_synthetic_datasets = {model: 0 for model in models}
-            for j in tqdm(range(n_synthetic_datasets), desc="Synthetic datasets", leave=False):
+            for j in tqdm(range(n_synthetic_datasets_dict[dataset_task]), desc="Synthetic datasets", leave=False):
                 curr_boolean_train_indices = np.load(os.path.join(curr_dir_dataset_train_indices,
                                                                   f"bool_indices_{j}.npy"))
                 curr_data_train = curr_dataset.loc[curr_boolean_train_indices, :]
@@ -111,6 +117,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
                             data_test=curr_data_test,
                             categories="auto",
                             retcats=True,
+                            determine_cats_from_both_train_and_test=True,
                             **params_extra_xgboost
                         )
                         if allow_fewer_synthetic_datasets:
@@ -160,11 +167,16 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
             for metric, metric_lower in zip(curr_metrics, curr_metrics_lower):
                 for metric_eval, metric_eval_lower in zip(metric_evals, metric_evals_lower):
                     if metric_eval_lower == "mean":
-                        metric_eval_func = np.mean
+                        metric_eval_func = np.nanmean if ignore_nan else np.mean
                     elif metric_eval_lower == "median":
-                        metric_eval_func = np.median
+                        metric_eval_func = np.nanmedian if ignore_nan else np.median
                     elif metric_eval_lower[:10] == "percentile":
-                        metric_eval_func = lambda x, axis: np.percentile(x, q=float(metric_eval_lower[10:]), axis=axis)
+                        if ignore_nan:
+                            metric_eval_func = lambda x, axis: np.nanpercentile(x, q=float(metric_eval_lower[10:]),
+                                                                             axis=axis)
+                        else:
+                            metric_eval_func = lambda x, axis: np.percentile(x, q=float(metric_eval_lower[10:]),
+                                                                             axis=axis)
                     else:
                         raise ValueError(f"All metric evals must be one of 'mean', 'median' or 'percentile[d]', "
                                          "where [d] is a float between 0 and 100. You entered as metric: {metric}")
@@ -200,7 +212,8 @@ def tidy_comparison_ml_efficacy_output(dict_result_datasets,
             percentiles_unique = percentile_cols.str.replace("Percentile", "").str.extract('^(\d+)')[0].unique().astype(
                 float)
             if len(percentiles_unique) == 2:
-                percentiles = [round(percentile) for percentile in sorted(percentiles_unique)]
+                percentiles = [round(percentile, 5) for percentile in sorted(percentiles_unique)]
+                percentiles = [percentile if percentile % 1 else int(percentile) for percentile in percentiles]
             else:
                 raise ValueError(
                     f"Can't determine which percentiles should be default. Found {len(percentiles)} unique "
