@@ -194,7 +194,7 @@ def eval_ml_efficacy_for_synthesizers(synthesizer_names,
             pbar_tasks.update()
             result_datasets[dataset_task] = result_dataset
     if ret_count_nan:
-        result_datasets, df_count_nan
+        return result_datasets, df_count_nan
     else:
         return result_datasets
 
