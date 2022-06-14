@@ -88,7 +88,7 @@ def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
                 wgan_lambda=10,
                 quantile_transformation_int=qt,
                 quantile_rand_transformation=qtr,
-                noise_discrete_unif_max=0,
+                noise_discrete_unif_max=0 if ctgan else 0.01,
                 gumbel_temperature=0.5 if ctgan else 0.1,
                 activation_function="GELU",
                 max_quantile_share=1,
@@ -102,7 +102,16 @@ def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
                 train_step_critic_same_queries_for_critic_and_gen=False,
                 train_step_critic_wgan_penalty_query_diversity=False,
                 train_step_critic_query_wgan_penalty=True,
-                critic_use_query_input=True
+                critic_use_query_input=True,
+                batch_normalization_generator=True,
+                batch_normalization_before_activation=False,
+                generator_concatenate_hidden_with_previous_layer=False,
+                layer_normalization_critic=False,
+                layer_normalization_simple_type=False,
+                layer_normalization_before_activation=False,
+                qt_distribution="normal",
+                latent_distribution="normal",
+                oh_encoding_activation_function="gumbel"
                 )
     tg.train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, progress_bar=PROGRESS_BAR_MODEL_FIT)
     return tg.sample(n=data_train.shape[0])
