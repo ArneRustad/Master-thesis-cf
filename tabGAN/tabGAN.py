@@ -237,7 +237,7 @@ class TabGAN:
         self.latent_distribution = latent_distribution
         self.oh_encoding_activation_function = oh_encoding_activation_function
         self.n_quantiles_int = n_quantiles_int
-        self.qt_n_subsample = qt_n_subsample
+        self.qt_n_subsample = int(qt_n_subsample)
         self.initialized_gan = False
         self.qtr_spread = qtr_spread
         self.qtr_lbound_apply = qtr_lbound_apply
@@ -699,7 +699,7 @@ class TabGAN:
             else:
                 n = queries.shape[0]
         else:
-            if n != queries.shape[0]:
+            if queries is not None and n != queries.shape[0]:
                 raise ValueError("If parameter n is set in addition to queries and/or n_repeat, "
                                  "then n must be equal to length of queries times n_repeat (if n_repeat set)")
         return n, queries
@@ -923,7 +923,14 @@ class TabGAN:
                     data_batch_real = self.get_numpy_data_batch_real(n_batch)
             self.train_step_critic(data_batch_real, n_batch, queries=queries, queries2=queries2)
         if ret_loss:
-            em_distance = self.compute_em_distance()
+            if self.use_query:
+                if self.ctgan:
+                    queries_em_distance = self.generate_queries(self.data.shape[0], original_probs=True)
+                else:
+                    queries_em_distance = self.generate_queries(self.data.shape[0])
+            else:
+                queries_em_distance = None
+            em_distance = self.compute_em_distance(queries=queries_em_distance)
 
         if self.use_query:
             if self.ctgan:
@@ -1054,16 +1061,12 @@ class TabGAN:
     def calc_loss_generator(self, fake_output, **kwargs):
         return - tf.reduce_mean(fake_output)
 
-    def compute_em_distance_func(self):
+    def compute_em_distance_func(self, queries=None):
         noise = self.generate_latent(self.data.shape[0])
-        if self.use_query:
-            if self.ctgan:
-                queries = self.generate_queries(self.data.shape[0], original_probs=True)
-            else:
-                queries = self.generate_queries(self.data.shape[0])
-            noise_and_queries = [noise, queries]
-        else:
+        if queries is None:
             noise_and_queries = noise
+        else:
+            noise_and_queries = [noise, queries]
         gen_data_num, gen_data_discrete = self.generator(noise_and_queries, training=True)
 
         if self.pac > 1:
@@ -1150,7 +1153,7 @@ class TabGAN:
               plot_loss=False, plot2D_image=False, plot2D_image_real_time=False, plot_time=False, plot_loss_type="scatter",
               plot_loss_real_time=False,
               plot_loss_update_every=1, plot_loss_title=None, ckpt_every=None, tf_make_graph=None,
-              save_dir=None, filename_plot_loss=None, filename_plot2D=None, save_loss=False, plot_loss_incl_generator_loss=False,
+              save_dir=None, filename_plot_loss=None, filename_plot2D=None, plot_loss_incl_generator_loss=False,
               plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
               plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
               plot2D_n_test=None,
