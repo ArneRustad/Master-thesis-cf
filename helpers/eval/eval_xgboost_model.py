@@ -52,10 +52,11 @@ def fit_and_evaluate_xgboost(data_train, data_test, categories = "auto", retcats
         Y_test = label_encoder.transform(Y_test)
 
     oh_encoder = OneHotEncoder(categories=categories, sparse=False)
-    if determine_cats_from_both_train_and_test:
-        oh_encoder.fit(X_train[discrete_columns_of_X].append(X_test[discrete_columns_of_X], ignore_index=True))
-    else:
-        oh_encoder.fit(X_train[discrete_columns_of_X])
+    if categories is "auto":
+        if determine_cats_from_both_train_and_test:
+            oh_encoder.fit(X_train[discrete_columns_of_X].append(X_test[discrete_columns_of_X], ignore_index=True))
+        else:
+            oh_encoder.fit(X_train[discrete_columns_of_X])
     X_train = np.concatenate((X_train[numeric_columns_of_X].to_numpy(),
                               oh_encoder.fit_transform(X_train[discrete_columns_of_X])),
                              axis=1)
