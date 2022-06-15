@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 def compare_hist_real_vs_generated(model, other_gen_dataset = None, n_img_horiz = 4, n_bins = 20, figsize = None,
                                    discrete_xtick_rotation = 45,
                                    title = None, seed = None, save_path = None, save_dir = None):
