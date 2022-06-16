@@ -1090,7 +1090,7 @@ class TabGAN:
             [[gen_data_num, gen_data_discrete], queries] if self.use_query else [[gen_data_num, gen_data_discrete]],
             training=True)
         em_distance = self.calc_loss_critic(real_output=output_discr_real, fake_output=output_discr_fake)
-        return em_distance
+        return 0.5 * em_distance + np.log(2)
 
     def train_step_generator_func(self, n_batch, queries=None):
         noise = self.generate_latent(n_batch)
