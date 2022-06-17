@@ -681,5 +681,22 @@ def fetch_hp_info(method="ctabGAN-qtr", version=2):
         "hyperparams_subname": ["rate", "layers"]
     }
 
+    adam_betas_vec = [(beta1, beta2) for beta1 in [0.5, 0.7] for beta2 in [0.9, 0.999]]
+    def create_tabGAN_for_adam_betas(beta1, beta2):
+        temp_args_dict = copy.deepcopy(method_args_dict)
+        temp_args_dict["adam_beta1"] = beta1
+        temp_args_dict["adam_beta2"] = beta2
+        tg_qtr = TabGAN(data_train, **temp_args_dict)
+        return tg_qtr
+
+    hp_info["adam_betas"] = {
+        "vec": adam_betas_vec,
+        "n_synthetic_datasets": 10,
+        "n_epochs": N_EPOCHS,
+        "tabGAN_func": create_tabGAN_for_adam_betas,
+        "batch_size": BATCH_SIZE,
+        "hyperparams_subname": ["beta1", "beta2"]
+    }
+
     return hp_info
 

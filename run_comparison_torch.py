@@ -26,7 +26,7 @@ DATASET_TASKS = ["covtype_edited", "creditcard_edited", "news_edited", "adult_ed
 
 MODELS = ["TVAE", "TVAE-mod", "TVAESynthesizer", "TVAESynthesizer-mod", #count 4
           "CTGAN-pac10", "CTGAN-pac1", "CTGANSynthesizer-pac1", "CTGANSynthesizer-pac10", #count 8
-          "tabFairGAN", "tabFairGAN-mod", "GaussianCopula", "CopulaGAN"]
+          "tabFairGAN", "tabFairGAN-mod2", "GaussianCopula", "CopulaGAN"]
 
 slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')
 if slurm_array_task_id is not None:
@@ -119,7 +119,7 @@ def tabfairgan_synthesizer(data_train, modified=False):
     if modified:
         dim_hidden_layer = 256
         dim_latent_layer = 128
-        extra_hidden_layer_generator = True
+        extra_hidden_layer_generator = False
     else:
         dim_hidden_layer = -1 # same as setting equal to input dim
         dim_latent_layer = -1 # same as setting equal to input dim
@@ -242,8 +242,8 @@ if "tabFairGAN" in MODELS:
         **dict_default_arguments
     )
 
-if "tabFairGAN-mod" in MODELS:
-    synthesizer_name = "tabFairGAN-mod"
+if "tabFairGAN-mod2" in MODELS:
+    synthesizer_name = "tabFairGAN-mod2"
     helpers.comparison.synthesize_multiple_datasets(
         synthesizer=lambda data: tabfairgan_synthesizer(data, modified=True),
         synthesizer_name=synthesizer_name,
