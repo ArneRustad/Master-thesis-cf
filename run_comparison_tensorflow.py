@@ -13,7 +13,7 @@ from datetime import datetime
 N_EPOCHS = 300
 BATCH_SIZE = 500
 N_CRITICS = 10
-N_SYNTHETIC_DATASETS = 20
+N_SYNTHETIC_DATASETS = 25
 
 RESTART_ALL = False
 RESTART_SPECIFIC = []
@@ -21,43 +21,7 @@ PROGRESS_BAR_TASK = True
 PROGRESS_BAR_MODEL_FIT = False
 DATASET_TASKS = ["covtype_edited", "creditcard_edited", "news_edited", "adult_edited"]
 MODELS = ["tabGAN", "tabGAN-qt", "tabGAN-qtr", "ctabGAN", "ctabGAN-qt", "ctabGAN-qtr"]
-
-slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')
-if slurm_array_task_id is not None:
-    slurm_array_task_id = int(slurm_array_task_id)
-    task_id = (slurm_array_task_id % 1000) // 100
-    model_id = slurm_array_task_id % 100
-    dataset_id = slurm_array_task_id // 1000
-    if task_id > 0:
-        if task_id <= len(DATASET_TASKS):
-            DATASET_TASKS = [DATASET_TASKS[task_id - 1]]
-            if DATASET_TASKS[0] == "adult_edited":
-                N_SYNTHETIC_DATASETS = 25
-            if DATASET_TASKS[0] == "news_edited":
-                N_SYNTHETIC_DATASETS = 25
-        else:
-            raise ValueError(f"task_id can't be larger than length of DATASET_TASKS. You entered {dataset_id}.")
-    if dataset_id > 0:
-        if dataset_id <= N_SYNTHETIC_DATASETS:
-            SPECIFIC_DATASET_NUMBER = dataset_id - 1
-        else:
-            raise ValueError(f"dataset_id can't be larger than N_SYNTHETIC_DATASETS. You entered {dataset_id}.")
-    else:
-        SPECIFIC_DATASET_NUMBER = None
-    if model_id > 0:
-        if model_id <= len(MODELS):
-            MODELS = [MODELS[model_id - 1]]
-        else:
-            raise ValueError(f"model_id can't be larger than length of MODELS. You entered {model_id}.")
-
-    print(f"Starting comparison array task with dataset_id {dataset_id} and model_id {model_id}")
-
-dict_default_arguments = {
-    "datasets": DATASET_TASKS,
-    "n_synthetic_datasets": N_SYNTHETIC_DATASETS,
-    "progress_bar_task": PROGRESS_BAR_TASK,
-    "_specific_dataset_number": SPECIFIC_DATASET_NUMBER
-}
+SPECIFIC_DATASET_NUMBER=None
 
 def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
     if qtr and not qt:
@@ -117,104 +81,142 @@ def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
     return tg.sample(n=data_train.shape[0])
 
 
-if "tabGAN" in MODELS:
-    synthesizer_name = "tabGAN"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
-    )
+if __name__ == "__main__":
+    slurm_array_task_id = os.getenv('SLURM_ARRAY_TASK_ID')
+    if slurm_array_task_id is not None:
+        slurm_array_task_id = int(slurm_array_task_id)
+        task_id = (slurm_array_task_id % 1000) // 100
+        model_id = slurm_array_task_id % 100
+        dataset_id = slurm_array_task_id // 1000
+        if task_id > 0:
+            if task_id <= len(DATASET_TASKS):
+                DATASET_TASKS = [DATASET_TASKS[task_id - 1]]
+                if DATASET_TASKS[0] == "adult_edited":
+                    N_SYNTHETIC_DATASETS = 50
+                if DATASET_TASKS[0] == "news_edited":
+                    N_SYNTHETIC_DATASETS = 25
+            else:
+                raise ValueError(f"task_id can't be larger than length of DATASET_TASKS. You entered {dataset_id}.")
+        if dataset_id > 0:
+            if dataset_id <= N_SYNTHETIC_DATASETS:
+                SPECIFIC_DATASET_NUMBER = dataset_id - 1
+            else:
+                raise ValueError(f"dataset_id can't be larger than N_SYNTHETIC_DATASETS. You entered {dataset_id}.")
+        else:
+            SPECIFIC_DATASET_NUMBER = None
+        if model_id > 0:
+            if model_id <= len(MODELS):
+                MODELS = [MODELS[model_id - 1]]
+            else:
+                raise ValueError(f"model_id can't be larger than length of MODELS. You entered {model_id}.")
 
-if "tabGAN-qt" in MODELS:
-    synthesizer_name = "tabGAN-qt"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
-    )
+        print(f"Starting comparison array task with dataset_id {dataset_id} and model_id {model_id}")
 
-if "tabGAN-qtr" in MODELS:
-    synthesizer_name = "tabGAN-qtr"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
-    )
+    dict_default_arguments = {
+        "datasets": DATASET_TASKS,
+        "n_synthetic_datasets": N_SYNTHETIC_DATASETS,
+        "progress_bar_task": PROGRESS_BAR_TASK,
+        "_specific_dataset_number": SPECIFIC_DATASET_NUMBER
+    }
 
-if "ctabGAN" in MODELS:
-    synthesizer_name = "ctabGAN"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
-    )
+    if "tabGAN" in MODELS:
+        synthesizer_name = "tabGAN"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
+        )
 
-if "ctabGAN-qt" in MODELS:
-    synthesizer_name = "ctabGAN-qt"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
-    )
+    if "tabGAN-qt" in MODELS:
+        synthesizer_name = "tabGAN-qt"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
+        )
 
-if "ctabGAN-qtr" in MODELS:
-    synthesizer_name = "ctabGAN-qtr"
-    if "-pac" in synthesizer_name:
-        pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
-    else:
-        pac = 1
-    helpers.comparison.synthesize_multiple_datasets(
-        synthesizer=lambda data: tabGAN_synthesizer(data,
-                                                    qt="-qt" in synthesizer_name,
-                                                    qtr="-qtr" in synthesizer_name,
-                                                    ctgan="ctabGAN" in synthesizer_name,
-                                                    pac=pac),
-        synthesizer_name=synthesizer_name,
-        overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
-        **dict_default_arguments
+    if "tabGAN-qtr" in MODELS:
+        synthesizer_name = "tabGAN-qtr"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
+        )
+
+    if "ctabGAN" in MODELS:
+        synthesizer_name = "ctabGAN"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
+        )
+
+    if "ctabGAN-qt" in MODELS:
+        synthesizer_name = "ctabGAN-qt"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
+        )
+
+    if "ctabGAN-qtr" in MODELS:
+        synthesizer_name = "ctabGAN-qtr"
+        if "-pac" in synthesizer_name:
+            pac = int(re.search( "pac(\d+)", synthesizer_name).group(0).replace("pac", ""))
+        else:
+            pac = 1
+        helpers.comparison.synthesize_multiple_datasets(
+            synthesizer=lambda data: tabGAN_synthesizer(data,
+                                                        qt="-qt" in synthesizer_name,
+                                                        qtr="-qtr" in synthesizer_name,
+                                                        ctgan="ctabGAN" in synthesizer_name,
+                                                        pac=pac),
+            synthesizer_name=synthesizer_name,
+            overwrite_dataset=RESTART_ALL or synthesizer_name in RESTART_SPECIFIC,
+            **dict_default_arguments
     )
