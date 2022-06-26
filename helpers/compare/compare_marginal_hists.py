@@ -19,6 +19,12 @@ def compare_hist_real_vs_generated(model,
         gen_data = other_gen_dataset
     else:
         gen_data = pd.read_csv(other_gen_dataset_path)
+
+    model.data.loc[:, "race"] = np.where(model.data.loc[:, "race"] == "Amer-Indian-Eskimo",
+                                         "Native-American-Inuit", model.data.loc[:, "race"])
+    gen_data.data.loc[:, "race"] = np.where(gen_data.data.loc[:, "race"] == "Amer-Indian-Eskimo",
+                                            "Native-American-Inuit", model.data.loc[:, "race"])
+
     n_img_vert = (model.n_columns-1) // n_img_horiz + 1
     if(figsize == None):
         figsize = (15, 3*n_img_vert)
