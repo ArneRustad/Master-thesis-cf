@@ -23,7 +23,8 @@ DATASET_TASKS = ["covtype_edited", "creditcard_edited", "news_edited", "adult_ed
 MODELS = ["tabGAN", "tabGAN-qt", "tabGAN-qtr", "ctabGAN", "ctabGAN-qt", "ctabGAN-qtr"]
 SPECIFIC_DATASET_NUMBER=None
 
-def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1):
+def tabGAN_synthesizer(data_train, qt=False, qtr=False, ctgan=False, pac=1,
+                       train_step_critic_same_queries_for_critic_and_gen=False):
     if qtr and not qt:
         raise ValueError("qtr parameter can not be set to True when qt parameter is set to False")
     name = ""

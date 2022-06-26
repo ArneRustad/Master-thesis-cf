@@ -1,8 +1,26 @@
-def compare_nmi_matrices(tgans, extra_datasets = None, include_true_data = True, n_q_bins = 40, ncol = None, nrow = None,
+import matplotlib.pyplot as plt
+import pandas as pd
+from . import compute as compute_nmi_matrix
+import numpy as np
+import os
+from math import ceil, floor
+
+def compare_nmi_matrices(tgans,
+                         reference_tgan=None,
+                         extra_datasets = None, extra_dataset_paths=None,
+                         include_true_data = True, n_q_bins = 40, ncol = None, nrow = None,
                          average_method = "arithmetic", subplot_title_true_dataset = "True dataset",
                          subplot_titles_tgans = None, subplot_titles_extra_datasets = None, figsize = [14,5],
                          compute_diff_nmi_matrices = False, save_dir = None, save_name = None, title = None,
-                         data_test = None):
+                         data_test = None, only_use_first_n_rows=None,
+                         leave_first_n_empty=0):
+    if reference_tgan is None:
+        reference_tgan = tgans[0]
+    if extra_dataset_paths is not None:
+        if extra_datasets is None:
+            extra_datasets = []
+        extra_datasets += [pd.read_csv(extra_dataset_path) for extra_dataset_path in extra_dataset_paths]
+
     if (not save_dir is None) and save_name is None:
         if compute_diff_nmi_matrices:
             save_name = "nmi_diff_matrices"
@@ -20,7 +38,7 @@ def compare_nmi_matrices(tgans, extra_datasets = None, include_true_data = True,
 
     if not extra_datasets is None:
         datasets = [None] * len(tgans) + extra_datasets
-        tgans = tgans + [tgans[0]] * len(extra_datasets)
+        tgans = tgans + [reference_tgan] * len(extra_datasets)
         if (subplot_titles_extra_datasets == None):
             subplot_titles_extra_datasets = [None] * len(extra_datasets)
         else:
@@ -55,11 +73,11 @@ def compare_nmi_matrices(tgans, extra_datasets = None, include_true_data = True,
             raise ValueError("ncol times nrow must be larger than number of subfigures to plot")
 
     if data_test is None:
-        n_samples = tgans[0].data.shape[0]
+        n_samples = reference_tgan.data.shape[0]
     else:
         n_samples = data_test.shape[0]
 
-    fig, axes = plt.subplots(nrow, ncol, figsize = figsize, sharey = True, sharex=True)
+    fig, axes = plt.subplots(nrow, ncol, figsize=figsize, sharey=True, sharex=True)
     plt.tight_layout()
 
     plt.title(title)
@@ -95,9 +113,13 @@ def compare_nmi_matrices(tgans, extra_datasets = None, include_true_data = True,
             axes[axes_ind].set_title(subplot_titles[curr_fig])
 
     curr_tgan = 0
-    for curr_fig in range(1 if include_true_data else 0, nrow * ncol):
-        if (curr_fig < n_subplots):
-            nmi_matrix = compute_nmi_matrix(tgans[curr_tgan], dataset = datasets[curr_tgan], n_q_bins = n_q_bins,
+    start_pos = 1 if include_true_data else 0
+    for curr_fig in range(start_pos, nrow * ncol):
+        if (curr_fig < n_subplots + leave_first_n_empty) and (curr_fig >= start_pos + leave_first_n_empty):
+            curr_dataset = datasets[curr_tgan]
+            if curr_dataset is not None and only_use_first_n_rows is not None:
+                curr_dataset = curr_dataset.iloc[np.arange(only_use_first_n_rows), :]
+            nmi_matrix = compute_nmi_matrix(tgans[curr_tgan], dataset=curr_dataset, n_q_bins = n_q_bins,
                                             generated_data = True, retbins = False, average_method = average_method,
                                             n_samples = n_samples)
             axes_ind = map_fig_n_to_indices(curr_fig, ncol, nrow)
@@ -113,14 +135,14 @@ def compare_nmi_matrices(tgans, extra_datasets = None, include_true_data = True,
             xticklabels = axes[axes_ind].set_xticklabels(tgans[curr_tgan].columns, rotation = 90)
             yticklabels = axes[axes_ind].set_yticklabels(tgans[curr_tgan].columns)
             if subplot_titles != None:
-                axes[axes_ind].set_title(subplot_titles[curr_fig])
+                axes[axes_ind].set_title(subplot_titles[curr_fig - leave_first_n_empty])
             curr_tgan += 1
         else:
             axes[map_fig_n_to_indices(curr_fig, ncol, nrow)].axis("off")
 
     fig.colorbar(im, ax=axes.ravel().tolist())
     if not save_dir is None:
-        plt.savefig(os.path.join(save_dir, save_name))
+        plt.savefig(os.path.join(save_dir, save_name), bbox_inches = "tight")
     plt.close(fig)
     return fig
     

@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 def compute_nmi_matrix(tgan = None, dataset = None, bins = None, n_q_bins = 40
                        , generated_data = True, retbins = False, average_method = "arithmetic",
                        n_samples = None):
@@ -35,15 +38,15 @@ def compute_nmi_matrix(tgan = None, dataset = None, bins = None, n_q_bins = 40
         raise ValueError("Average_method given as input is not implemented")
 
     probs_dict = {}
-    entropy = np.zeros(tg.n_columns)
+    entropy = np.zeros(tgan.n_columns)
     for i,col in enumerate(tgan.columns):
         col_category_fractions = data_binned[col].value_counts(normalize = True)
         probs_dict[col] = col_category_fractions.to_dict()
         entropy[i] = np.sum(- col_category_fractions * np.log(col_category_fractions))
 
-    nmi_matrix = np.zeros([tg.n_columns, tg.n_columns])
-    for i,col1 in enumerate(tg.columns):
-        for j,col2 in enumerate(tg.columns):
+    nmi_matrix = np.zeros([tgan.n_columns, tgan.n_columns])
+    for i,col1 in enumerate(tgan.columns):
+        for j,col2 in enumerate(tgan.columns):
             if j < i:
                 continue
             elif i == j:

@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import warnings
+import os
 
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, QuantileTransformer
 from sklearn.compose import ColumnTransformer
@@ -13,13 +14,20 @@ from tensorflow.keras.layers import (Input, Dense, Flatten, concatenate, Activat
 from .tabGAN import TabGAN
 from .fast_nondominated_sort import fast_non_dominated_sort
 
+import utils.plot
+
 class TabGANcf(TabGAN):
-    def __init__(self, data_train, classifier, only_gen_class=None,
+    def __init__(self, data_train, classifier, only_gen_class=None, only_want_class=None,
                  query_critic_instance=True,
                  query_critic_classifier_label=False, query_generator_classifier_label=False,
-                 classifier_adjusted_wgan_loss_term=False, only_want_class=None,
+                 classifier_adjusted_wgan_loss_term=False,
                  critic_loss_mix_real_correct_samples_with_generated=False,
+                 critic_loss_mix_real_correct_samples_with_generated_coef=1,
                  critic_loss_mix_real_wrong_samples_with_generated=False,
+                 critic_loss_mix_real_wrong_samples_with_generated_coef=1,
+                 generator_1norm_num_loss_coef=1,
+                 generator_2norm_num_loss_coef=0,
+                 generator_add_bernoulli_new_vs_query=False,
                  **kwargs):
 
         super().__init__(data=data_train,
@@ -62,6 +70,15 @@ class TabGANcf(TabGAN):
         pos_queries_used_by_critic = np.where([self.query_critic_instance, self.query_critic_classifier_label])[0]
         self.pos_queries_used_by_critic = pos_queries_used_by_critic
         print(self.pos_queries_used_by_critic)
+
+        self.generator_1norm_num_loss_coef = generator_1norm_num_loss_coef
+        self.generator_2norm_num_loss_coef = generator_2norm_num_loss_coef
+        self.generator_add_bernoulli_new_vs_query = generator_add_bernoulli_new_vs_query
+        self.critic_loss_mix_real_correct_samples_with_generated_coef = \
+            critic_loss_mix_real_correct_samples_with_generated_coef
+        self.critic_loss_mix_real_wrong_samples_with_generated_coef = \
+            critic_loss_mix_real_wrong_samples_with_generated_coef
+
 
         if len(self.pos_queries_used_by_critic) == 0:
             self.critic_use_query_input = False
@@ -128,7 +145,11 @@ class TabGANcf(TabGAN):
         if self.classifier_adjusted_wgan_loss_term:
             # Classifier adjusted loss term for WGAN
             with critic_tape.stop_recording():
-                classifier_score_real_data = tf.squeeze(queries_real[1])
+                # classifier_score_real_data = tf.squeeze(queries_real[1])
+                classifier_score_real_data = self.eval_classifier_on_transformed_data(
+                    data_num_scaled=data_batch_real[0], data_discrete_oh=data_batch_real[1])
+                # tf.print(classifier_score_real_data)
+                # tf.print(tf.squeeze(queries_real[1]))
                 if self.only_want_class is None:
                     classifier_score_real_data = tf.where(wanted_classifier_label <= 0.5,
                                                        1 - classifier_score_real_data, classifier_score_real_data)
@@ -145,14 +166,27 @@ class TabGANcf(TabGAN):
             # Standard WGAN loss term
             loss = - tf.reduce_mean(real_output)
 
+        critic_loss_gen_part_normalizer = 1
+        loss_from_generator_samples = 0
         if self.critic_loss_mix_real_wrong_samples_with_generated:
-            loss += 0.25 * tf.reduce_mean(self.critic([self.split_transformed_data(queries_real[0]),
+            loss_from_generator_samples += (
+                    self.critic_loss_mix_real_wrong_samples_with_generated_coef *
+                    tf.reduce_mean(self.critic([self.split_transformed_data(queries_real[0]),
                                                 [tf.concat(data_batch_real, axis=1),
                                                  queries_real[1]]
                                                 ]))
+                     )
+            critic_loss_gen_part_normalizer += self.critic_loss_mix_real_wrong_samples_with_generated_coef
 
-
-        loss += tf.reduce_mean(fake_output)
+        if self.critic_loss_mix_real_correct_samples_with_generated:
+            with critic_tape.stop_recording():
+                extra_correct_samples = self.get_numpy_data_batch_real_from_queries(queries_real)
+            loss_from_generator_samples += (self.critic_loss_mix_real_correct_samples_with_generated_coef *
+                     tf.reduce_mean(self.critic([extra_correct_samples, queries_real]))
+                     )
+            critic_loss_gen_part_normalizer += self.critic_loss_mix_real_correct_samples_with_generated_coef
+        loss_from_generator_samples += tf.reduce_mean(fake_output)
+        loss += loss_from_generator_samples / critic_loss_gen_part_normalizer
         return loss
 
     def calc_loss_generator(self, fake_output, gen_data_num, gen_data_discrete, queries, gen_tape):
@@ -162,9 +196,14 @@ class TabGANcf(TabGAN):
         # Standard WGAN loss term
         loss = - tf.reduce_mean(fake_output)
         loss_vec = [loss]
-        # Distance 1 norm loss term
-        loss += tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_num - gen_data_num), axis=1))
-        loss += tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_discrete - gen_data_discrete), axis=1))
+        # Distance 1 norm numeric loss term
+        loss += (self.generator_1norm_num_loss_coef *
+                 tf.reduce_mean(tf.reduce_mean(tf.abs(query_instances_num - gen_data_num), axis=1)))
+        # Distance 2 norm numeric loss term
+        loss += (self.generator_2norm_num_loss_coef *
+                 tf.reduce_mean(tf.sqrt(tf.reduce_mean((query_instances_num - gen_data_num)**2, axis=1))))
+        # Discrete columns loss term
+        loss += tf.reduce_mean(tf.reduce_sum(tf.abs(query_instances_discrete - gen_data_discrete), axis=1))
         loss_vec = tf.concat((loss_vec, [loss - loss_vec[0]]), axis=-1)
         #tf.print(loss_vec)
         return loss
@@ -174,10 +213,12 @@ class TabGANcf(TabGAN):
         return tf.cast(self.classifier(data), tf.float32)
 
     def eval_classifier_on_transformed_data(self, data_num_scaled, data_discrete_oh):
-        return tf.reshape(
-            tf.py_function(self._eval_classifier_on_transformed_data,
-                           inp=[data_num_scaled, data_discrete_oh], Tout=tf.float32),
-            shape=[data_num_scaled.shape[0]])
+        # return tf.reshape(
+        #     tf.py_function(self._eval_classifier_on_transformed_data,
+        #                    inp=[data_num_scaled, data_discrete_oh], Tout=tf.float32),
+        #     shape=[data_num_scaled.shape[0]])
+        return tf.py_function(self._eval_classifier_on_transformed_data,
+                           inp=[data_num_scaled, data_discrete_oh], Tout=tf.float32)
 
 
 
@@ -199,7 +240,7 @@ class TabGANcf(TabGAN):
         if ret_loss:
             return 0, 0
         else:
-            return
+            return None, None
 
     def create_critic(self):
         """
@@ -318,15 +359,47 @@ class TabGANcf(TabGAN):
                                                           name="Concatenate_hidden_and_discrete")
             output_numeric = Dense(self.n_columns_num, name="Numeric_output")(concatenate_hidden_and_discrete)
 
+        if self.generator_add_bernoulli_new_vs_query:
+            pass
+
         model = Model(inputs=inputs, outputs=[output_numeric, output_discrete])
         return model
 
+    def _sample_interpret_input(self, n, queries, n_repeat):
+        if n_repeat is not None:
+            raise ValueError("n_repeat different from 1 is not yet implemented for tabGAN-cf")
+
+        if n is None:
+            if queries is None:
+                n = self.nrow
+            else:
+                n = queries[0].shape[0]
+        else:
+            if queries is not None and n != queries.shape[0]:
+                raise ValueError("If parameter n is set in addition to queries and/or n_repeat, "
+                                 "then n must be equal to length of queries times n_repeat (if n_repeat set)")
+        return n, queries
+
+    def _sample_get_gen_input(self, n, queries):
+        noise = self.generate_latent(n)
+        if queries is None:
+            queries = self.generate_queries(n)
+        gen_input = [noise, queries]
+        return gen_input
+
     def plot2D_axis_update(self, ax, latent_vec, num_cols, discrete_col=None, queries=None, inv_scale=True,
-                           legend=True, color_opacity=1):
+                           legend=True, color_opacity=1, color_map=None):
         gen_data_num, gen_data_discrete = self.generator([latent_vec, queries] if self.use_query
                                                          else [latent_vec])
         color_gen = None
         color_queries = None
+
+        x1_lim = np.array([np.min(self.data_num.loc[:, num_cols[0]]),
+                           np.max(self.data_num.loc[:, num_cols[0]])])
+        x2_lim = np.array([np.min(self.data_num.loc[:, num_cols[0]]),
+                           np.max(self.data_num.loc[:, num_cols[0]])])
+        utils.plot.heatmap2D_classifier(ax, self.classifier, x1_lim=x1_lim, x2_lim=x2_lim)
+
         if inv_scale:
             gen_data = self.inv_data_transform(gen_data_num, gen_data_discrete)
             queries = self.inv_data_transform(*self.split_transformed_data(queries[0]))
@@ -334,7 +407,11 @@ class TabGANcf(TabGAN):
                 color_dict = {"all": next(ax._get_lines.prop_cycler)['color']}
             else:
                 labels_unique = np.sort(np.unique([gen_data[discrete_col], queries[discrete_col]]))
-                colors_unique = [next(ax._get_lines.prop_cycler)['color'] for label in labels_unique]
+                if color_map is None:
+                    colors_unique = [next(ax._get_lines.prop_cycler)['color'] for label in labels_unique]
+                else:
+                    cmap = matplotlib.cm.get_cmap(color_map)
+                    colors_unique = [color for color in cmap(np.linspace(0, 1, len(labels_unique)))]
                 color_dict = {label: color for label, color in zip(labels_unique, colors_unique)}
                 color_gen = gen_data[discrete_col].map(color_dict)
                 color_queries = queries[discrete_col].map(color_dict)
@@ -344,8 +421,8 @@ class TabGANcf(TabGAN):
                                for color in color_dict.values()]
                     ax.legend(markers, color_dict.keys(), numpoints=1)
 
-                class_gen_data = np.where(self.classifier(gen_data) > 0.5, 1, 0).astype(int)
-                class_queries = np.where(self.classifier(queries) > 0.5, 1, 0).astype(int)
+            class_gen_data = np.where(self.classifier(gen_data) > 0.5, 1, 0).astype(int)
+            class_queries = np.where(self.classifier(queries) > 0.5, 1, 0).astype(int)
         else:
             gen_data = pd.DataFrame(gen_data_num, columns=self.columns_num)
             queries = pd.DataFrame(self.split_transformed_data(queries[0])[0], columns=self.columns_num)
@@ -356,4 +433,75 @@ class TabGANcf(TabGAN):
                   gen_data[num_cols[0]] - queries[num_cols[0]],
                   gen_data[num_cols[1]] - queries[num_cols[1]],
                   angles='xy', scale_units='xy', scale=1,
-                  color=np.where(class_gen_data != class_queries, "yellow", "red"))
+                  color=np.where(class_gen_data != class_queries, "yellow", "black"))
+
+    def plot2D_classifier(self, numeric_cols, add_observations=False, add_counterfactuals=False,
+                          n_counterfactuals=None, n_observations=None, seed=None,
+                          counterfactual_queries=None,
+                          save_dir=None, save_path=None, observation_opacity=1,
+                          figsize=[12, 8], expand_limits=0.2,
+                          print_original_observations=False, print_counterfactuals=False):
+        if n_counterfactuals is None:
+            if counterfactual_queries is None:
+                n_counterfactuals = 10
+            else:
+                n_counterfactuals = queries_counterfactuals[0].shape[0]
+
+        if n_observations is None:
+            n_observations = self.data.shape[0]
+
+        x1_lim = np.array([np.min(self.data_num.loc[:, numeric_cols[0]]),
+                           np.max(self.data_num.loc[:, numeric_cols[0]])])
+        x2_lim = np.array([np.min(self.data_num.loc[:, numeric_cols[1]]),
+                           np.max(self.data_num.loc[:, numeric_cols[1]])])
+
+        def expand_fraction(limits, fraction):
+            avg_lim, half_range_lim = np.mean(limits), (limits[1] - limits[0]) / 2
+            return [avg_lim - half_range_lim * (1 + fraction), avg_lim + half_range_lim * (1 + fraction)]
+
+
+        fig, ax = plt.subplots(figsize=figsize)
+        utils.plot.heatmap2D_classifier(ax, self.classifier, x1_lim=expand_fraction(x1_lim, expand_limits),
+                                        x2_lim=expand_fraction(x2_lim, expand_limits))
+
+        if add_observations:
+            data_num_subset = self.data_num.loc[:n_observations,:]
+            obs_classifier_vals = self.classifier(data_num_subset.loc[:, numeric_cols])
+            plt.scatter(data_num_subset.loc[:, numeric_cols[0]], data_num_subset.loc[:, numeric_cols[1]],
+                        c=np.where(obs_classifier_vals > 0.5, "maroon", "darkblue"),
+                        alpha=observation_opacity)
+
+        if add_counterfactuals:
+            if counterfactual_queries is None:
+                queries_counterfactuals = self.generate_queries(n=n_counterfactuals, plot2D_test_samples=True)
+            else:
+                queries_counterfactuals = [counterfactual_queries[0][:n_counterfactuals, :],
+                                           counterfactual_queries[1][:n_counterfactuals, :]
+                                           ]
+            counterfactuals = self.sample(queries=queries_counterfactuals)
+            counterfactuals_classifier_vals = self.classifier(counterfactuals)
+            counterfactuals_classifier_class = np.where(counterfactuals_classifier_vals > 0.5, 1, 0)
+            original_observations = self.inv_data_transform(*self.split_transformed_data(queries_counterfactuals[0]))
+            original_observations_classifiers_vals = self.classifier(original_observations)
+            original_observations_classifiers_class = np.where(original_observations_classifiers_vals > 0.5, 1, 0)
+            ax.quiver(original_observations[numeric_cols[0]], original_observations[numeric_cols[1]],
+                      counterfactuals[numeric_cols[0]] - original_observations[numeric_cols[0]],
+                      counterfactuals[numeric_cols[1]] - original_observations[numeric_cols[1]],
+                      angles='xy', scale_units='xy', scale=1, width=0.005,
+                      color=np.where(counterfactuals_classifier_class != original_observations_classifiers_class,
+                                     "yellow", "magenta")
+                      )
+
+            if print_original_observations:
+                print(original_observations.to_latex())
+            if print_counterfactuals:
+                print(counterfactuals.to_latex())
+            # tf.print(np.sum(original_observations["dummy"] == counterfactuals["dummy"]))
+
+        if save_path is not None:
+            if save_dir is not None:
+                save_path = os.path.join(save_dir, save_path)
+            fig.savefig(save_path)
+
+
+

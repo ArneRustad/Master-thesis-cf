@@ -6,8 +6,8 @@ def _map_str_to_color(vec, color_map = "viridis"):
     vec_set = set(vec)
     if color_map is None:
         fig, ax = plt.subplots()
-        fit.close()
         colors = [next(ax._get_lines.prop_cycler)['color'] for i in range(len(vec_set))]
+        plt.close(fig)
     else:
         cmap = matplotlib.cm.get_cmap(color_map)
         colors = cmap(np.linspace(0, 1, len(vec_set)))

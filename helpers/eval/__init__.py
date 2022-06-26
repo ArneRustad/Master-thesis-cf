@@ -1,2 +1,3 @@
 from helpers.eval.eval_xgboost_model import fit_and_evaluate_xgboost
 from helpers.eval.evaluate_tabular_GAN import eval_tabular_GAN_ml_efficacy as tabular_GAN_ml_efficacy
+from helpers.eval.eval_synthesizer_speed import eval_synthesizer_speed as synthesizer_speed

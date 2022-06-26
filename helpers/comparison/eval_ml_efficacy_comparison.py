@@ -21,8 +21,8 @@ METRIC_DICT = {
 
 
 def transform_news_dataset(news):
-    return news.assign(shares=lambda x: np.where(x.shares > 3395, ">3395 (Popular)", "<=3395 (Unpopular)"))
-
+    return news.assign(shares=lambda x: np.where(x.shares > 1400, ">1400 (Popular)", "<=1400 (Unpopular)"))
+# Alternatively 3395
 
 DATA_TRANSFORM_DICT = {
     "covtype_edited": None,

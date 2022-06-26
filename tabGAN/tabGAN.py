@@ -21,6 +21,7 @@ from sklearn.compose import ColumnTransformer
 
 from IPython.display import clear_output, display, Image, Video
 import matplotlib.pyplot as plt
+import matplotlib
 
 class TabGAN:
     """
@@ -30,7 +31,9 @@ class TabGAN:
                  n_hidden_layers=2, n_hidden_generator_layers=None, n_hidden_critic_layers=None,
                  dim_hidden=256, dim_hidden_generator=None, dim_hidden_critic=None,
                  dim_latent=128, n_critic=5,
-                 quantile_transformation_int=True, max_quantile_share=1, print_quantile_shares=False,
+                 quantile_transformation_int=True, max_quantile_share=1,
+                 print_quantile_shares=False,
+                 print_values_where_qtr_is_applied=False,
                  qt_distribution="normal", latent_distribution="normal",
                  oh_encoding_activation_function="gumbel", gumbel_temperature=0.5, softmax_temperature=0.5,
                  n_quantiles_int=1000, qt_n_subsample=int(1e5),
@@ -231,6 +234,7 @@ class TabGAN:
         self.quantile_transformation_int = quantile_transformation_int
         self.max_quantile_share = max_quantile_share
         self.print_quantile_shares = print_quantile_shares
+        self.print_values_where_qtr_is_applied = print_values_where_qtr_is_applied
         self.quantile_rand_transformation = quantile_rand_transformation
         self.reapply_qtr_continuously = reapply_qtr_continuously
         self.qt_distribution = qt_distribution
@@ -574,6 +578,9 @@ class TabGAN:
                     curr_reference_range = curr_references[-1] - curr_references[0]
                     low = curr_references[0] + curr_reference_range * (0.5 - self.qtr_spread / 2)
                     high = curr_references[0] + curr_reference_range * (0.5 + self.qtr_spread / 2)
+
+                    if self.print_values_where_qtr_is_applied:
+                        print(f"Column: {self.columns_num[col]}. Value: {integer}. n_curr_references: {n_curr_references}")
 
                     if self.qtr_distribution == "uniform":
                         if self.qt_distribution == "normal" and not self.qtr_uniform_on_normal_scale:
@@ -1089,8 +1096,8 @@ class TabGAN:
         output_discr_fake = self.critic(
             [[gen_data_num, gen_data_discrete], queries] if self.use_query else [[gen_data_num, gen_data_discrete]],
             training=True)
-        em_distance = self.calc_loss_critic(real_output=output_discr_real, fake_output=output_discr_fake)
-        return 0.5 * em_distance + np.log(2)
+        em_distance = - self.calc_loss_critic(real_output=output_discr_real, fake_output=output_discr_fake)
+        return em_distance
 
     def train_step_generator_func(self, n_batch, queries=None):
         noise = self.generate_latent(n_batch)
@@ -1156,7 +1163,7 @@ class TabGAN:
               save_dir=None, filename_plot_loss=None, filename_plot2D=None, plot_loss_incl_generator_loss=False,
               plot2D_num_cols=[0, 1], plot2D_discrete_col=None, plot2D_color_opacity=0.5, plot2D_n_save_img=20,
               plot2D_save_int=None, plot2D_background_func=None, plot2D_n_img_horiz=5, plot2D_inv_scale=True,
-              plot2D_n_test=None,
+              plot2D_n_test=None, plot2D_color_map=None,
               tf_profile_train_step_range=[-1, -1], tf_profile_log_dir="log_tabGAN"):
         """
         Function for training the data synthesizer (training the GAN architecture).
@@ -1314,7 +1321,8 @@ class TabGAN:
                                                 inv_scale=plot2D_inv_scale,
                                                 num_cols=plot2D_num_cols, discrete_col=plot2D_discrete_col,
                                                 legend=(plot2D_img_count == 0),
-                                                color_opacity=plot2D_color_opacity)
+                                                color_opacity=plot2D_color_opacity,
+                                                color_map=plot2D_color_map)
 
                         ax_plot2D.set_title("Epoch %d/%d" % (epoch, n_epochs))
                         if plot2D_img_count == 0:
@@ -1378,7 +1386,7 @@ class TabGAN:
         return return_figures
 
     def plot2D_axis_update(self, ax, latent_vec, num_cols, discrete_col=None, queries=None, inv_scale=True,
-                           legend=True, color_opacity=1):
+                           legend=True, color_opacity=1, color_map=None):
         gen_data_num, gen_data_discrete = self.generator([latent_vec, queries] if self.use_query
                                                          else [latent_vec])
 
@@ -1389,7 +1397,11 @@ class TabGAN:
                 color = None
             else:
                 labels_unique = np.sort(np.unique(gen_data[discrete_col]))
-                colors_unique = [next(ax._get_lines.prop_cycler)['color'] for label in labels_unique]
+                if color_map is None:
+                    colors_unique = [next(ax._get_lines.prop_cycler)['color'] for label in labels_unique]
+                else:
+                    cmap = matplotlib.cm.get_cmap(color_map)
+                    colors_unique = [color for color in cmap(np.linspace(0, 1, len(labels_unique)))]
                 color_dict = {label: color for label, color in zip(labels_unique, colors_unique)}
                 color = gen_data[discrete_col].map(color_dict)
 
