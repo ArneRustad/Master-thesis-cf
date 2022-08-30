@@ -1,10 +1,12 @@
 # Master thesis - Counterfactuals - Arne Rustad
 
 
-This is a Github repository for the code associated with Arne Rustad's master thesis. Below we describe briefly what each code file's purpose is and give the abstract for the written master thesis titled *"tabGAN: A Framework for UtilizingTabular GAN for Data Synthesizing and Generation of Counterfactual Explanations"*
+This is a Github repository for the code associated with Arne Rustad's master thesis. Below we describe briefly what each code file's purpose is and give the abstract for the written master thesis titled *"tabGAN: A Framework for UtilizingTabular GAN for Data Synthesizing and Generation of Counterfactual Explanations"* in first english and then norwegian.
 
 
-## Code file explanations
+## Github project layout explanation
+
+1. 
 
 1. **Imports.ipynb**: This jupyter notebook file contains all the imports required by the different scripts in this repository. They are created as a separate file that can be loaded to avoid repeating the process for each script and to make it an easy process to update package requirements.
 2. **explore_and_clean_adult_dataset.R**: This R file contains the code performing very simple exploratory analysis of the Adult dataset in addition to preprocessing of the Adult dataset. Lastly, it also prints the latex code required for the summary tables of the Adult datasets used in the project report.
