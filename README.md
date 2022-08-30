@@ -3,7 +3,7 @@
 
 This is a Github repository for the code associated with Arne Rustad's master thesis. Below we describe briefly the github project layout and give the abstract for the written master thesis titled *"tabGAN: A Framework for Utilizing Tabular GAN for Data Synthesizing and Generation of Counterfactual Explanations"* in first english and then norwegian.
 
-Package or virtual enviroment details required for utilizing a cloned version of the repository might be available at a later stage.
+Package or virtual environment details required for utilizing a cloned version of the repository might be available at a later stage.
 
 
 ## Github project layout explanation
