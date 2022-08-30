@@ -1,6 +1,4 @@
-# Master thesis -- Tabular GAN for data synthesis and counterfactual explanations
-
-by **Arne Rustad**
+# Master thesis - Tabular GAN for data synthesis and counterfactual explanations - by **Arne Rustad**
 
 
 This is a Github repository for the code associated with Arne Rustad's master thesis. Below we describe briefly the github project layout and give the abstract for the written master thesis titled *"tabGAN: A Framework for Utilizing Tabular GAN for Data Synthesizing and Generation of Counterfactual Explanations"* in first english and then norwegian.
