@@ -7,7 +7,6 @@ This is a Github repository for the code associated with Arne Rustad's master th
 ## Github project layout explanation
 
 1. **data**: This folder contains mostly unprocessed versions of the datasets used in the analysis
-2. **generate**: This folder contains a single file. The single file contains a single helper function that as input a data synthesizer and for each desired real dataset, creates a specific number of synthetic datasets that is saved where desired. Is used as a helper function when comparing different data synthesizers.
 3. **helpers**: This folder contains a bunch of helper functions
     1. **compare**: This folder contains scripts with functions for comparing the marginal histograms of a synthesized dataset against the marginal histograms of a real dataset.
     2. **compare**: This folder contains scripts for comparing data synthesizers.
@@ -20,7 +19,13 @@ This is a Github repository for the code associated with Arne Rustad's master th
         - *compute_nmi_matrix.py*: Contains a function that computes the NMI matrix of dataset.
         - *compare_nmi_matrices.py*: Contains a function for visually plotting different NMI matrices side-by-side in a grid format. Also allows for plotting the difference between the NMI matrices of the synthetic datasets compared to the original dataset.
     6. *tabGAN_gen_multiple_datasets.py*: File with helper function for synthesizing and saving multiple datasets using the tabGAN synthesizer. Due to the creation of other more general helper functions that can be used on any data synthesizer, this is mostly used by the hyperparameter tuning helper functions.
-
+3. **hp_tuning_scripts**: This folder contains jupyter notebook files for visualizing the different iterations of hyperparameter tuning of the tabGAN framework. The notebooks are labelled with tabGAN or ctabGAN if they contain the hyperparameter tuning for respectively regular or conditional tabular GAN.
+4. **images**: This folder contains images. The saved images corresponding to each hyperparameter search iteration is stored in its own folder.
+5. **notebooks**: This folder contains a range of jupyter notebooks for doing all sorts of things.
+6. **slurm_jobs**: This folder contains SLURM scripts for running jobs on the Idun high performing computer group
+7. **src**: This folder contains various Python and R scripts. Additionally, it contains a folder called **constants** which is used to set or infer various global constants.
+8. **tabGAN**: This folder contains the code for the TabGAN data synthesizing class and the TabGANcf class used to create counterfactual explanations. The TabGANcf class inherits from the TabGAN class.
+9. **utils**: This folder contains lots of different utility functions.
 
 ## Master thesis abstract
 
